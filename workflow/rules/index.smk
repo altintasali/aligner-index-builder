@@ -307,7 +307,7 @@ rule bismark_index:
     input:
         GENOME_FASTA,
     output:
-        directory(os.path.join(OUTDIR, "BismarkIndex", "Bismark_Genome")),
+        directory(os.path.join(OUTDIR, "BismarkIndex", "Bisulfite_Genome")),
     threads: get_resources("bismark_index")["threads"]
     resources:
         mem_mb=get_resources("bismark_index")["mem_mb"],
@@ -322,7 +322,7 @@ rule bismark_index:
         "mkdir -p {OUTDIR}/BismarkIndex && "
         "ln -sf {input} {OUTDIR}/BismarkIndex/genome.fa && "
         "bismark_genome_preparation --bowtie2 "
-        "--path_to_bowtie2 \"$(dirname \"$(command -v bowtie2)\")\" "
+        "--path_to_aligner \"$(dirname \"$(command -v bowtie2)\")\" "
         "{OUTDIR}/BismarkIndex"
 
 

@@ -91,8 +91,8 @@ TOOL_TARGETS = {
     "salmon": os.path.join(OUTDIR, "SalmonIndex", "seq.bin"),
     # star and bismark rules declare directory() outputs, so the targets are
     # the directories themselves; the marker files asserted in CI/tests live
-    # inside them (STARIndex/SAindex, .../CT_conversion/genome.1.bt2).
-    "bismark": os.path.join(OUTDIR, "BismarkIndex", "Bismark_Genome"),
+    # inside them (STARIndex/SAindex, .../CT_conversion/BS_CT.1.bt2).
+    "bismark": os.path.join(OUTDIR, "BismarkIndex", "Bisulfite_Genome"),
 }
 
 

@@ -119,7 +119,7 @@ A run always produces the FASTA (normalized + decompressed) with `.fai` and
 | bwa-mem2 | `BWA-MEM2Index/` | `genome.fa.bwt.2bit.64` | FASTA only |
 | bwa-meth | `BWAmethIndex/` | `genome.fa.bwameth.c2t.sa` | FASTA only; `bwameth.py index` |
 | bwa-meth (mem2) | `BWAmeth2Index/` | `genome.fa.bwameth.c2t.bwt.2bit.64` | FASTA only; `bwameth.py index-mem2` |
-| Bismark | `BismarkIndex/Bismark_Genome/` | `CT_conversion/genome.1.bt2` | FASTA only; bowtie2-based (`bismark_genome_preparation --bowtie2`) |
+| Bismark | `BismarkIndex/Bisulfite_Genome/` | `CT_conversion/BS_CT.1.bt2` | FASTA only; bowtie2-based (`bismark_genome_preparation --bowtie2`) |
 | salmon | `SalmonIndex/` | `seq.bin` | needs GTF; decoy-aware (transcripts via `gffread` + genome as decoys) |
 | — | `genome_fasta/` | `genome.fa`, `genome.fa.fai`, `genome.2bit` | always; `samtools faidx` + `faToTwoBit` |
 | — | `annotation/` | `genes.gtf`, `transcripts.fa` | when a GTF is given |
@@ -149,7 +149,7 @@ results/GRCh38/
 ├── BWA-MEM2Index/
 ├── BWAmethIndex/
 ├── BWAmeth2Index/
-├── BismarkIndex/Bismark_Genome/
+├── BismarkIndex/Bisulfite_Genome/
 ├── SalmonIndex/
 └── pipeline_info/
     ├── logs/                   # per-rule logs + config_resolution.log

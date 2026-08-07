@@ -49,7 +49,7 @@ jobs:
           test -s results/test/BWA-MEM2Index/genome.fa.bwt.2bit.64
           test -s results/test/BWAmethIndex/genome.fa.bwameth.c2t.sa
           test -s results/test/BWAmeth2Index/genome.fa.bwameth.c2t.bwt.2bit.64
-          test -s results/test/BismarkIndex/Bismark_Genome/CT_conversion/genome.1.bt2
+          test -s results/test/BismarkIndex/Bisulfite_Genome/CT_conversion/BS_CT.1.bt2
           test -s results/test/SalmonIndex/seq.bin
 
   guards:
