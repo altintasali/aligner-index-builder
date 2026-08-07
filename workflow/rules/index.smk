@@ -115,7 +115,7 @@ rule star_index:
         "actually written successfully anyway (benign STAR exit-time crash)' "
         ">> {log}; "
         "test -s {output}/SA && test -s {output}/SAindex && "
-        "test -s {output}/Genome))"
+        "test -s {output}/Genome)"
 
 
 # -----------------------------------------------------------------------------
