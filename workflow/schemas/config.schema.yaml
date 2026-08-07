@@ -1,0 +1,33 @@
+# Config schema for aligner-index-builder. The CLI generates a config
+# matching this; direct snakemake runs must too. Extra keys (e.g. a
+# `resources:` override block) are allowed.
+$schema: http://json-schema.org/draft-07/schema#
+title: aligner-index-builder config
+type: object
+properties:
+  genome_name:
+    type: string
+  outdir:
+    type: string
+  fasta:
+    type: string
+  gtf:
+    type: ["string", "null"]
+  tools:
+    # "all" (expanded by common.smk) or an explicit list of tools.
+    oneOf:
+      - type: string
+        enum: [all]
+      - type: array
+        items:
+          type: string
+          enum: [star, hisat2, bowtie2, bwa, bwa-mem2, bwameth, bwameth2, salmon, bismark]
+  sjdb_overhang:
+    type: integer
+    minimum: 1
+  star_extra:
+    type: string
+  salmon_kmer:
+    type: integer
+    minimum: 1
+required: [outdir, fasta, tools]

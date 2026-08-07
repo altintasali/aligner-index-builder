@@ -1,0 +1,290 @@
+#!/usr/bin/env python3
+"""aligner-index-builder -- CLI front-end for the aligner-index-builder workflow.
+
+Builds STAR, HISAT2, bowtie2, bwa, bwa-mem2, bwa-meth (bwameth/bwameth2),
+Bismark and salmon index sets for a reference genome (FASTA + optional GTF),
+mirroring the snakePipes createIndices layout.
+
+It writes a run config to <outdir>/<name>.config.yaml, runs snakemake on the
+bundled Snakefile, and on success writes a manifest <outdir>/<name>.yaml.
+Local paths are resolved to absolute paths before snakemake runs so results
+never depend on the cwd; URLs (http(s)/ftp(s)/file://) are passed through and
+downloaded by the prepare rules.
+
+Errors are written to stderr and exit non-zero (1), never silently swallowed.
+"""
+import argparse
+import json
+import os
+import shlex
+import subprocess
+import sys
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+WORKFLOW_DIR = os.path.dirname(HERE)
+REPO_ROOT = os.path.dirname(WORKFLOW_DIR)
+SNAKEFILE = os.path.join(WORKFLOW_DIR, "Snakefile")
+VERSION_FILE = os.path.join(REPO_ROOT, "VERSION")
+
+ALL_TOOLS = [
+    "star", "hisat2", "bowtie2", "bwa", "bwa-mem2",
+    "bwameth", "bwameth2", "salmon", "bismark",
+]
+GTF_TOOLS = {"star", "hisat2", "salmon"}
+
+TOOL_DIRS = {
+    "star": "STARIndex",
+    "hisat2": "HISAT2Index",
+    "bowtie2": "BowtieIndex",
+    "bwa": "BWAIndex",
+    "bwa-mem2": "BWA-MEM2Index",
+    "bwameth": "BWAmethIndex",
+    "bwameth2": "BWAmeth2Index",
+    "salmon": "SalmonIndex",
+    "bismark": "BismarkIndex",
+}
+
+
+class _Parser(argparse.ArgumentParser):
+    def error(self, message):
+        self.print_usage(sys.stderr)
+        self.exit(1, f"{self.prog}: error: {message}\n")
+
+
+def _die(msg, code=1):
+    print(f"aligner-index-builder: error: {msg}", file=sys.stderr)
+    sys.exit(code)
+
+
+def _read_version():
+    try:
+        with open(VERSION_FILE) as fh:
+            return fh.read().strip()
+    except OSError:
+        return "unknown"
+
+
+try:
+    import yaml
+
+    def _write_yaml(path, data):
+        with open(path, "w") as fh:
+            yaml.safe_dump(data, fh, sort_keys=False)
+except ImportError:
+    def _write_yaml(path, data):
+        # json is a strict subset of YAML -- a fine fallback when the env
+        # lacks pyyaml (the pre-built env ships it, so this is defensive).
+        with open(path, "w") as fh:
+            json.dump(data, fh, indent=2)
+            fh.write("\n")
+
+
+def _normalize(path):
+    """Absolute local path, or pass URLs through untouched."""
+    if "://" in path:
+        return path
+    return os.path.abspath(path)
+
+
+def _check_local(path, kind):
+    if "://" in path:
+        return
+    if not os.path.exists(path):
+        _die(f"{kind} file does not exist: {path!r}")
+
+
+def _build_parser():
+    parser = _Parser(
+        prog="aligner-index-builder",
+        description=__doc__.strip().splitlines()[0],
+        epilog=(
+            "Example:\n"
+            "  aligner-index-builder --fasta genome.fa --gtf genes.gtf "
+            "-o results/GRCh38 --tools all"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "--fasta", required=True, metavar="PATH",
+        help="reference FASTA -- local path (plain/.gz/.bz2) or URL",
+    )
+    parser.add_argument(
+        "--gtf", metavar="PATH",
+        help="gene annotation GTF -- local path or URL. Required for star, "
+             "hisat2 and salmon; without it those tools are skipped.",
+    )
+    parser.add_argument(
+        "-o", "--outdir", required=True, metavar="DIR",
+        help="output directory (created if missing); all indices land here",
+    )
+    parser.add_argument(
+        "--genome-name", metavar="NAME",
+        help="name used for the generated config + manifest "
+             "(default: the output directory's basename)",
+    )
+    parser.add_argument(
+        "--tools", nargs="+", default=["all"], metavar="TOOL",
+        help="which index sets to build (space- or comma-separated); 'all' "
+             "builds every tool. Choices: " + ", ".join(ALL_TOOLS),
+    )
+    parser.add_argument(
+        "--sjdb-overhang", type=int, metavar="N",
+        help="STAR splice-junction overhang (usually read length - 1; "
+             "default 100)",
+    )
+    parser.add_argument(
+        "--star-extra", metavar="FLAGS",
+        help="extra STAR genomeGenerate flags, e.g. for small genomes: "
+             "'--genomeSAindexNbases 7 --genomeChrBinNbits 16'",
+    )
+    parser.add_argument(
+        "--salmon-kmer", type=int, metavar="N",
+        help="k-mer length for the salmon index (default 31)",
+    )
+    parser.add_argument(
+        "--cores", type=int, default=1, metavar="N",
+        help="snakemake --cores (default 1)",
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true",
+        help="write the config and print the snakemake plan without running "
+             "any jobs",
+    )
+    parser.add_argument(
+        "--keep-temp", action="store_true",
+        help="keep intermediate files that snakemake would normally delete",
+    )
+    parser.add_argument(
+        "--snakemake-options", metavar="ARGS",
+        help="extra snakemake arguments, passed through verbatim (quoted)",
+    )
+    parser.add_argument(
+        "-v", "--verbose", action="store_true",
+        help="print snakemake's shell commands (--printshellcmds)",
+    )
+    parser.add_argument(
+        "--version", action="version",
+        version=f"%(prog)s {_read_version()}",
+    )
+    return parser
+
+
+def _parse_tools(args_tools):
+    tools = []
+    for item in args_tools:
+        for tok in item.split(","):
+            tok = tok.strip().lower()
+            if tok:
+                tools.append(tok)
+    if "all" in tools:
+        tools = list(ALL_TOOLS)
+    unknown = [t for t in tools if t not in ALL_TOOLS]
+    if unknown:
+        _die(
+            f"unknown tool(s): {', '.join(unknown)}. "
+            f"Choose from: {', '.join(ALL_TOOLS)} (or 'all')."
+        )
+    return list(dict.fromkeys(tools))
+
+
+def main(argv=None):
+    args = _build_parser().parse_args(argv)
+
+    if args.cores < 1:
+        _die("--cores must be >= 1")
+
+    fasta = _normalize(args.fasta)
+    _check_local(fasta, "fasta")
+    gtf = _normalize(args.gtf) if args.gtf else None
+    if gtf:
+        _check_local(gtf, "gtf")
+
+    tools = _parse_tools(args.tools)
+    if not tools:
+        _die("no tools requested")
+    if not gtf:
+        dropped = [t for t in tools if t in GTF_TOOLS]
+        if dropped:
+            print(
+                f"note: no --gtf given; skipping GTF-dependent tools: "
+                f"{', '.join(dropped)}",
+                file=sys.stderr,
+            )
+            tools = [t for t in tools if t not in GTF_TOOLS]
+        if not tools:
+            _die(
+                "no tools left to build: all requested tools need a GTF, but "
+                "none was given (pass --gtf)."
+            )
+
+    outdir = os.path.abspath(args.outdir)
+    genome_name = args.genome_name or os.path.basename(outdir) or "genome"
+    os.makedirs(outdir, exist_ok=True)
+
+    config = {
+        "genome_name": genome_name,
+        "outdir": outdir,
+        "fasta": fasta,
+        "gtf": gtf,
+        "tools": tools,
+    }
+    if args.sjdb_overhang is not None:
+        if args.sjdb_overhang < 1:
+            _die("--sjdb-overhang must be >= 1")
+        config["sjdb_overhang"] = args.sjdb_overhang
+    if args.star_extra:
+        config["star_extra"] = args.star_extra
+    if args.salmon_kmer is not None:
+        if args.salmon_kmer < 1:
+            _die("--salmon-kmer must be >= 1")
+        config["salmon_kmer"] = args.salmon_kmer
+
+    config_path = os.path.join(outdir, f"{genome_name}.config.yaml")
+    _write_yaml(config_path, config)
+    print(f"wrote run config: {config_path}")
+
+    cmd = [
+        "snakemake", "-s", SNAKEFILE,
+        "--configfile", config_path,
+        "--cores", str(args.cores),
+    ]
+    if args.dry_run:
+        cmd.append("-n")
+    if args.keep_temp:
+        cmd.append("--keep-temp")
+    if args.snakemake_options:
+        cmd += shlex.split(args.snakemake_options)
+    if args.verbose:
+        cmd += ["--printshellcmds", "--verbose"]
+
+    if args.dry_run:
+        print(f"dry-run (no jobs will run): {' '.join(cmd)}")
+    else:
+        print("building indices with snakemake ...")
+
+    proc = subprocess.run(cmd, cwd=REPO_ROOT)
+    if proc.returncode != 0:
+        _die(
+            f"snakemake failed (exit code {proc.returncode}); see the logs "
+            f"under {os.path.join(outdir, 'pipeline_info', 'logs')}"
+        )
+    if args.dry_run:
+        print(f"dry-run OK: {len(tools)} tool index set(s) requested")
+        return 0
+
+    manifest_path = os.path.join(outdir, f"{genome_name}.yaml")
+    _write_yaml(manifest_path, {
+        "genome_name": genome_name,
+        "outdir": outdir,
+        "fasta": fasta,
+        "gtf": gtf,
+        "tools": tools,
+        "indices": {t: os.path.join(outdir, TOOL_DIRS[t]) for t in tools},
+    })
+    print(f"wrote manifest: {manifest_path}")
+    print(f"done: built {len(tools)} index set(s) under {outdir}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

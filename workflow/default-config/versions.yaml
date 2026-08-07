@@ -1,0 +1,25 @@
+# =============================================================================
+# BUILT-IN DEFAULT tool versions -- part of the workflow itself, loaded
+# automatically. This is the single source of truth for what version of each
+# tool the workflow expects; workflow/environment.yaml (used to build the
+# pre-built env) mirrors these pins -- keep the two in sync.
+#
+# Snakemake/conda resolves the matching build automatically (via --use-conda),
+# no manual install required. At workflow parse time, common.smk renders each
+# of these into its own env file under workflow/envs/generated/.
+# =============================================================================
+versions:
+  star: "2.7.11b"
+  # 1.22.1, not 1.23.1: STAR 2.7.11b pins htslib <1.23, and samtools 1.23.x
+  # needs htslib >=1.23.1 -- so only samtools up to 1.22.x can share an
+  # environment with STAR.
+  samtools: "1.22.1"
+  hisat2: "2.2.1"
+  bowtie2: "2.5.5"
+  bwa: "0.7.18"
+  bwa_mem2: "2.2.1"
+  salmon: ">=1.10"
+  bismark: ">=0.24.1"
+  bwa_meth: ""           # provided by the bwa-meth conda package (unpinned)
+  gffread: ">=0.12.6"
+  ucsc_fatotwobit: "482"

@@ -1,0 +1,15 @@
+.snakemake/
+
+# Runtime outputs. Index builds go wherever you point --outdir; results/ is
+# a convenient default for local experiments.
+/results/
+
+.conda/
+.DS_Store
+*.pyc
+__pycache__/
+workflow/envs/generated/
+
+# Test profile: the tiny fixture (genome.fa, genome.gtf) is committed, but not
+# the indices CI builds from it at run time.
+.tests/resources/indices/

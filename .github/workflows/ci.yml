@@ -1,0 +1,156 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          activate-environment: aligner-index-builder
+          environment-file: workflow/environment.yaml
+          channel-priority: flexible
+      - shell: bash -l {0}
+        run: |
+          set -euo pipefail
+          # Build every index set from the tiny committed fixture (~120 kb,
+          # 60 genes). STAR needs the small-genome flags on it, which is what
+          # --star-extra is for.
+          python workflow/scripts/aligner-index-builder \
+            --fasta .tests/resources/genome.fa \
+            --gtf .tests/resources/genome.gtf \
+            -o results/test --genome-name test \
+            --tools all \
+            --star-extra "--genomeSAindexNbases 7 --genomeChrBinNbits 16" \
+            --cores 2
+
+          # The CLI wrote its run config and (on success) its manifest.
+          test -f results/test/test.config.yaml
+          test -f results/test/test.yaml
+          grep -q "bismark" results/test/test.yaml
+
+          # Side products: normalized fasta + .fai + .2bit, annotation files.
+          test -s results/test/genome_fasta/genome.fa
+          test -s results/test/genome_fasta/genome.fa.fai
+          test -s results/test/genome_fasta/genome.2bit
+          test -s results/test/annotation/genes.gtf
+          test -s results/test/annotation/transcripts.fa
+
+          # Every tool index, marked by a file the rule actually writes.
+          test -s results/test/STARIndex/SAindex
+          test -s results/test/HISAT2Index/genome.6.ht2
+          test -s results/test/BowtieIndex/genome.rev.2.bt2
+          test -s results/test/BWAIndex/genome.fa.sa
+          test -s results/test/BWA-MEM2Index/genome.fa.bwt.2bit.64
+          test -s results/test/BWAmethIndex/genome.fa.bwameth.c2t.sa
+          test -s results/test/BWAmeth2Index/genome.fa.bwameth.c2t.bwt.2bit.64
+          test -s results/test/BismarkIndex/Bismark_Genome/CT_conversion/genome.1.bt2
+          test -s results/test/SalmonIndex/seq.bin
+
+  guards:
+    # Negative + positive edge-case tests for the CLI and the parse-time /
+    # run-time checks in common.smk + index.smk: each step asserts the
+    # documented behavior, including the ones that must FAIL.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          activate-environment: aligner-index-builder
+          environment-file: workflow/environment.yaml
+          channel-priority: flexible
+      - shell: bash -l {0}
+        run: |
+          # GitHub Actions' runner executes this block under `set -e` and
+          # injects a `/usr/bin/clear_console -q` call into the exit path.
+          # That helper exits non-zero on non-TTY runners, so under `set -e`
+          # it would flip an otherwise fully-passing run (all 6 checks done,
+          # FAIL=0) into a zero-output "Process completed with exit code 1".
+          # This script reports its own failures via $FAIL and `exit $FAIL`,
+          # so -e is explicitly disabled here; -u and pipefail are kept.
+          set +e -uo pipefail
+          T=$(mktemp -d)
+          FAIL=0
+          fixture=.tests/resources
+
+          echo "[guards] 1/6 CLI refuses a missing local fasta"
+          if python workflow/scripts/aligner-index-builder \
+               --fasta /nonexistent/ref.fa --gtf "$fixture/genome.gtf" \
+               -o "$T/out1" --tools bowtie2 >"$T/cli1.log" 2>&1; then
+            echo "ERROR: CLI accepted a missing local fasta"; FAIL=1
+          elif ! grep -q "does not exist" "$T/cli1.log"; then
+            echo "ERROR: wrong message for a missing local fasta"; FAIL=1
+          fi
+
+          echo "[guards] 2/6 file:// URL input (download + gzip decompress)"
+          gzip -c "$fixture/genome.fa" > "$T/genome.fa.gz"
+          printf 'outdir: %s\ngtf:\nfasta: file://%s/genome.fa.gz\ntools: [bowtie2]\n' \
+            "$T/out2" "$T" > "$T/url.yaml"
+          snakemake --configfile "$T/url.yaml" --cores 1 --until prepare_genome \
+            >"$T/url.log" 2>&1
+          if [[ $? -ne 0 ]]; then
+            echo "ERROR: file:// URL run failed (see $T/url.log)"; FAIL=1
+          elif [[ ! -s "$T/out2/genome_fasta/genome.fa" ]]; then
+            echo "ERROR: genome.fa not produced from the file:// URL"; FAIL=1
+          fi
+
+          echo "[guards] 3/6 chromosome mismatch is a clear error"
+          printf '>zzz_only\nACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGT\n' \
+            > "$T/wrong.fa"
+          printf 'outdir: %s\nfasta: %s\ngtf: %s\ntools: [bowtie2]\n' \
+            "$T/out3" "$T/wrong.fa" "$fixture/genome.gtf" > "$T/mismatch.yaml"
+          snakemake --configfile "$T/mismatch.yaml" --cores 1 \
+            --until check_chrom_consistency >"$T/mismatch.log" 2>&1
+          if [[ $? -eq 0 ]]; then
+            echo "ERROR: chromosome mismatch did not fail the run"; FAIL=1
+          elif ! grep -q "no chromosome/contig name is shared" \
+                "$T/out3/pipeline_info/logs/chrom_consistency.log"; then
+            echo "ERROR: wrong failure message for chromosome mismatch"; FAIL=1
+          fi
+
+          echo "[guards] 4/6 missing GTF drops star but keeps bowtie2"
+          printf 'outdir: %s\nfasta: %s\ntools: [star, bowtie2]\n' \
+            "$T/out4" "$fixture/genome.fa" > "$T/nogtf.yaml"
+          snakemake --configfile "$T/nogtf.yaml" -n --cores 1 >"$T/nogtf.log" 2>&1
+          if [[ $? -ne 0 ]]; then
+            echo "ERROR: no-GTF run with a GTF-free tool must dry-run"; FAIL=1
+          elif ! grep -q "skipping GTF-dependent tools" "$T/nogtf.log"; then
+            echo "ERROR: no-GTF warning not shown"; FAIL=1
+          elif grep -q "STARIndex" "$T/nogtf.log"; then
+            echo "ERROR: STAR index was planned without a GTF"; FAIL=1
+          fi
+
+          echo "[guards] 5/6 all requested tools need a GTF, none given"
+          printf 'outdir: %s\nfasta: %s\ntools: [star]\n' \
+            "$T/out5" "$fixture/genome.fa" > "$T/staronly.yaml"
+          snakemake --configfile "$T/staronly.yaml" -n --cores 1 \
+            >"$T/staronly.log" 2>&1
+          if [[ $? -eq 0 ]]; then
+            echo "ERROR: star-only without a GTF did not fail the run"; FAIL=1
+          elif ! grep -q "No tools left" "$T/staronly.log"; then
+            echo "ERROR: wrong message for star-only without a GTF"; FAIL=1
+          fi
+
+          echo "[guards] 6/6 CLI rejects unknown tools; dry-run writes its config"
+          if python workflow/scripts/aligner-index-builder \
+               --fasta "$fixture/genome.fa" -o "$T/out6" --tools foo \
+               >"$T/cli6.log" 2>&1; then
+            echo "ERROR: CLI accepted an unknown tool"; FAIL=1
+          elif ! grep -q "unknown tool" "$T/cli6.log"; then
+            echo "ERROR: wrong message for an unknown tool"; FAIL=1
+          fi
+          if ! python workflow/scripts/aligner-index-builder \
+               --fasta "$fixture/genome.fa" -o "$T/out6b" --tools bowtie2 \
+               --dry-run >"$T/dry.log" 2>&1; then
+            echo "ERROR: CLI dry-run failed (see $T/dry.log)"; FAIL=1
+          elif [[ ! -f "$T/out6b/out6b.config.yaml" ]]; then
+            echo "ERROR: CLI dry-run did not write its config file"; FAIL=1
+          fi
+
+          echo "[guards] done, FAIL=$FAIL"
+          exit $FAIL

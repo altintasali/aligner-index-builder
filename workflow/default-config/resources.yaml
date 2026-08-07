@@ -1,0 +1,26 @@
+# =============================================================================
+# BUILT-IN DEFAULT per-rule compute resources (threads / mem_mb / runtime).
+# Loaded automatically; override for your own runs by adding a `resources:`
+# block to the generated config (it deep-merges over this file) or via
+# --snakemake-options '--default-resources threads=...'. Values are
+# conservative middle-grounds for real (e.g. human/mouse) genomes; the tiny CI
+# fixture runs comfortably under the default cores anyway.
+# =============================================================================
+resources:
+  check_chrom_consistency: {threads: 1, mem_mb: 2000, runtime: 30}
+  prepare_genome: {threads: 1, mem_mb: 2000, runtime: 30}
+  prepare_gtf: {threads: 1, mem_mb: 2000, runtime: 30}
+  fasta_fai: {threads: 1, mem_mb: 2000, runtime: 30}
+  fasta_2bit: {threads: 1, mem_mb: 8000, runtime: 60}
+  star_index: {threads: 8, mem_mb: 32000, runtime: 480}
+  hisat2_splicesites: {threads: 1, mem_mb: 2000, runtime: 30}
+  hisat2_exons: {threads: 1, mem_mb: 2000, runtime: 30}
+  hisat2_index: {threads: 8, mem_mb: 16000, runtime: 240}
+  bowtie2_index: {threads: 8, mem_mb: 8000, runtime: 240}
+  bwa_index: {threads: 4, mem_mb: 8000, runtime: 240}
+  bwa_mem2_index: {threads: 4, mem_mb: 8000, runtime: 240}
+  bwameth_index: {threads: 4, mem_mb: 8000, runtime: 240}
+  bwameth2_index: {threads: 4, mem_mb: 8000, runtime: 240}
+  bismark_index: {threads: 4, mem_mb: 8000, runtime: 240}
+  transcriptome_fasta: {threads: 1, mem_mb: 4000, runtime: 30}
+  salmon_index: {threads: 8, mem_mb: 16000, runtime: 120}

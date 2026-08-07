@@ -1,0 +1,37 @@
+# =============================================================================
+# EXAMPLE config for aligner-index-builder.
+#
+# You normally never write this file by hand -- the CLI generates it for you
+# into your output directory, so this template exists mainly as documentation
+# of the keys the workflow understands:
+#
+#   workflow/scripts/aligner-index-builder \
+#     --fasta genome.fa --gtf genes.gtf -o results/GRCh38
+#
+# For direct snakemake runs (advanced users / debugging), generate it with the
+# CLI's --dry-run to see the file, or write one by hand and pass it with:
+#
+#   snakemake -s workflow/Snakefile --configfile path/to/config.yaml --cores N
+#
+# Paths are resolved against the directory you run snakemake from. `fasta` and
+# `gtf` may be local paths (plain or gzipped) or http(s)/ftp(s)/file:// URLs.
+# =============================================================================
+genome_name: GRCh38          # name used for the generated config + manifest
+outdir: results/GRCh38       # where all indices land (created if missing)
+fasta: /path/to/genome.fa    # or https://.../genome.fa.gz
+gtf: /path/to/genes.gtf      # optional but required for star/hisat2/salmon
+tools:                       # which indices to build ("all" = every tool)
+  - star
+  - hisat2
+  - bowtie2
+  - bwa
+  - bwa-mem2
+  - bwameth
+  - bwameth2
+  - salmon
+  - bismark
+sjdb_overhang: 100           # STAR splice-junction overhang (read length - 1)
+star_extra: ""               # extra STAR genomeGenerate flags, e.g. small
+                             # genomes: "--genomeSAindexNbases 7
+                             # --genomeChrBinNbits 16"
+salmon_kmer: 31              # k-mer length for the salmon index
