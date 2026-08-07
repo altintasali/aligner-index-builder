@@ -18,7 +18,9 @@ versions:
   bowtie2: "2.5.5"
   bwa: "0.7.18"
   bwa_mem2: "2.2.1"
-  salmon: ">=1.10"
+  # 1.10.3, not >=1.10: salmon 2.x rewrote the index format (piscem/SSHash)
+  # and no longer writes the classic seq.bin layout the workflow expects.
+  salmon: "1.10.3"
   bismark: ">=0.24.1"
   bwameth: ""               # conda package name is `bwameth` (unpinned; provides bwameth.py)
   gffread: ">=0.12.6"
