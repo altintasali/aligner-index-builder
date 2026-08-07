@@ -180,8 +180,8 @@ if GENES_GTF:
             HISAT2_ENV
         shell:
             "hisat2-build -q -p {threads} "
-            "--splice-site-file {input.splicesites} "
-            "--exon-file {input.exons} "
+            "--ss {input.splicesites} "
+            "--exon {input.exons} "
             "{input.fasta} {OUTDIR}/HISAT2Index/genome"
 
 
