@@ -151,8 +151,8 @@ BWA_ENV = _write_env("bwa", [f"bwa={V['bwa']}"])
 BWA_MEM2_ENV = _write_env("bwa_mem2", [f"bwa-mem2={V['bwa_mem2']}"])
 BWAMETH_ENV = _write_env(
     "bwa_meth",
-    [f"bwa={V['bwa']}"]
-    + ([f"bwa-meth={V['bwa_meth']}"] if V["bwa_meth"] else ["bwa-meth"]),
+    [f"bwa={V['bwa']}", f"bwa-mem2={V['bwa_mem2']}"]
+    + ([f"bwameth={V['bwameth']}"] if V["bwameth"] else ["bwameth"]),
 )
 BISMARK_ENV = _write_env(
     "bismark", [f"bismark={V['bismark']}", f"bowtie2={V['bowtie2']}"]

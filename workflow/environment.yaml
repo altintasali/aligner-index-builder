@@ -25,7 +25,7 @@ dependencies:
   - bwa-mem2=2.2.1
   - salmon >=1.10
   - bismark >=0.24.1
-  - bwa-meth
+  - bwameth
   - gffread >=0.12.6
   - ucsc-fatotwobit=482
   # Floor only: keeps the solver from backtracking to an ancient build.

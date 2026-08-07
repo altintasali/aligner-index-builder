@@ -20,6 +20,6 @@ versions:
   bwa_mem2: "2.2.1"
   salmon: ">=1.10"
   bismark: ">=0.24.1"
-  bwa_meth: ""           # provided by the bwa-meth conda package (unpinned)
+  bwameth: ""               # conda package name is `bwameth` (unpinned; provides bwameth.py)
   gffread: ">=0.12.6"
   ucsc_fatotwobit: "482"
