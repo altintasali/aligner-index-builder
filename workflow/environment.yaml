@@ -5,6 +5,9 @@ channels:
 dependencies:
   # Workflow runtime.
   - snakemake >=8
+  # SLURM executor plugin (used by workflow/profiles/slurm). Its dependencies,
+  # incl. snakemake-executor-plugin-slurm-jobstep, come along automatically.
+  - snakemake-executor-plugin-slurm
   - conda >=24.7.1
   - pandas
   - pyyaml
