@@ -2,8 +2,9 @@
 
 A [Snakemake](https://snakemake.readthedocs.io/) pipeline that builds a
 complete set of aligner/indexer indices from a reference genome **FASTA**
-(+ optional **GTF**) covering the same tools as snakePipes'
-`createIndices`: STAR, HISAT2, bowtie2, bwa, bwa-mem2, bwa-meth
+(+ optional **GTF**), inspired by the
+[snakePipes](https://github.com/maxplanck-ie/snakepipes) `createIndices`
+layout: STAR, HISAT2, bowtie2, bwa, bwa-mem2, bwa-meth
 (bwameth/bwameth2), **Bismark** and salmon -- plus the `.fai` / `.2bit`
 side products and a `gffread` transcriptome for decoy-aware salmon indexes.
 Each index set lands in a lowercase index dir named after its tool

@@ -80,7 +80,7 @@ if not _tools:
 TOOLS = _tools
 
 # -----------------------------------------------------------------------------
-# Output paths (snakePipes createIndices tool set, lowercase index dirs)
+# Output paths (lowercase index dirs)
 # -----------------------------------------------------------------------------
 GENOME_FASTA = os.path.join(OUTDIR, "genome_fasta", "genome.fa")
 GENOME_FAI = GENOME_FASTA + ".fai"

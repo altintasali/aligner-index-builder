@@ -2,9 +2,9 @@
 """aligner-index-builder -- CLI front-end for the aligner-index-builder workflow.
 
 Builds STAR, HISAT2, bowtie2, bwa, bwa-mem2, bwa-meth (bwameth/bwameth2),
-Bismark and salmon index sets for a reference genome (FASTA + optional GTF),
-covering the same tool set as snakePipes' createIndices. Index dirs are named
-after their tool in lowercase (star_index/, bwa-mem2_index/, ...).
+Bismark and salmon index sets for a reference genome (FASTA + optional GTF).
+Index dirs are named after their tool in lowercase (star_index/,
+bwa-mem2_index/, ...).
 
 It writes a run config to <outdir>/<name>.config.yaml, runs snakemake on the
 bundled Snakefile, and on success writes a manifest <outdir>/<name>.yaml.
