@@ -3,7 +3,8 @@
 
 Builds STAR, HISAT2, bowtie2, bwa, bwa-mem2, bwa-meth (bwameth/bwameth2),
 Bismark and salmon index sets for a reference genome (FASTA + optional GTF),
-mirroring the snakePipes createIndices layout.
+covering the same tool set as snakePipes' createIndices. Index dirs are named
+after their tool in lowercase (star_index/, bwa-mem2_index/, ...).
 
 It writes a run config to <outdir>/<name>.config.yaml, runs snakemake on the
 bundled Snakefile, and on success writes a manifest <outdir>/<name>.yaml.
@@ -33,15 +34,15 @@ ALL_TOOLS = [
 GTF_TOOLS = {"star", "hisat2", "salmon"}
 
 TOOL_DIRS = {
-    "star": "STARIndex",
-    "hisat2": "HISAT2Index",
-    "bowtie2": "BowtieIndex",
-    "bwa": "BWAIndex",
-    "bwa-mem2": "BWA-MEM2Index",
-    "bwameth": "BWAmethIndex",
-    "bwameth2": "BWAmeth2Index",
-    "salmon": "SalmonIndex",
-    "bismark": "BismarkIndex",
+    "star": "star_index",
+    "hisat2": "hisat2_index",
+    "bowtie2": "bowtie2_index",
+    "bwa": "bwa_index",
+    "bwa-mem2": "bwa-mem2_index",
+    "bwameth": "bwa-meth_index",
+    "bwameth2": "bwa-meth2_index",
+    "salmon": "salmon_index",
+    "bismark": "bismark_index",
 }
 
 

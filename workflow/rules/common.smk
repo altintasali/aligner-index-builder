@@ -8,6 +8,15 @@ from snakemake.utils import validate
 # -----------------------------------------------------------------------------
 # Load & validate config
 # -----------------------------------------------------------------------------
+# Tool names are case-insensitive: normalize to lowercase before validation so
+# direct configs accept `tools: [STAR]` or `tools: [All]` just like the CLI
+# does. Non-string entries are left alone for the schema to reject.
+_raw_tools = config.get("tools")
+if isinstance(_raw_tools, str):
+    config["tools"] = _raw_tools.lower()
+elif isinstance(_raw_tools, list):
+    config["tools"] = [t.lower() if isinstance(t, str) else t for t in _raw_tools]
+
 validate(config, schema="../schemas/config.schema.yaml")
 
 V = config["versions"]
@@ -71,7 +80,7 @@ if not _tools:
 TOOLS = _tools
 
 # -----------------------------------------------------------------------------
-# Output paths (mirrors snakePipes createIndices' layout)
+# Output paths (snakePipes createIndices tool set, lowercase index dirs)
 # -----------------------------------------------------------------------------
 GENOME_FASTA = os.path.join(OUTDIR, "genome_fasta", "genome.fa")
 GENOME_FAI = GENOME_FASTA + ".fai"
@@ -81,18 +90,18 @@ TRANSCRIPTS_FA = os.path.join(OUTDIR, "annotation", "transcripts.fa")
 CHROM_CHECK_OK = os.path.join(OUTDIR, "pipeline_info", "chrom_consistency.ok")
 
 TOOL_TARGETS = {
-    "star": os.path.join(OUTDIR, "STARIndex"),
-    "hisat2": os.path.join(OUTDIR, "HISAT2Index", "genome.6.ht2"),
-    "bowtie2": os.path.join(OUTDIR, "BowtieIndex", "genome.rev.2.bt2"),
-    "bwa": os.path.join(OUTDIR, "BWAIndex", "genome.fa.sa"),
-    "bwa-mem2": os.path.join(OUTDIR, "BWA-MEM2Index", "genome.fa.bwt.2bit.64"),
-    "bwameth": os.path.join(OUTDIR, "BWAmethIndex", "genome.fa.bwameth.c2t.sa"),
-    "bwameth2": os.path.join(OUTDIR, "BWAmeth2Index", "genome.fa.bwameth.c2t.bwt.2bit.64"),
-    "salmon": os.path.join(OUTDIR, "SalmonIndex", "seq.bin"),
+    "star": os.path.join(OUTDIR, "star_index"),
+    "hisat2": os.path.join(OUTDIR, "hisat2_index", "genome.6.ht2"),
+    "bowtie2": os.path.join(OUTDIR, "bowtie2_index", "genome.rev.2.bt2"),
+    "bwa": os.path.join(OUTDIR, "bwa_index", "genome.fa.sa"),
+    "bwa-mem2": os.path.join(OUTDIR, "bwa-mem2_index", "genome.fa.bwt.2bit.64"),
+    "bwameth": os.path.join(OUTDIR, "bwa-meth_index", "genome.fa.bwameth.c2t.sa"),
+    "bwameth2": os.path.join(OUTDIR, "bwa-meth2_index", "genome.fa.bwameth.c2t.bwt.2bit.64"),
+    "salmon": os.path.join(OUTDIR, "salmon_index", "seq.bin"),
     # star and bismark rules declare directory() outputs, so the targets are
     # the directories themselves; the marker files asserted in CI/tests live
-    # inside them (STARIndex/SAindex, .../CT_conversion/BS_CT.1.bt2).
-    "bismark": os.path.join(OUTDIR, "BismarkIndex", "Bisulfite_Genome"),
+    # inside them (star_index/SAindex, bismark_index/Bisulfite_Genome/...).
+    "bismark": os.path.join(OUTDIR, "bismark_index", "Bisulfite_Genome"),
 }
 
 

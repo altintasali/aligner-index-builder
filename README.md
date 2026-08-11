@@ -2,10 +2,12 @@
 
 A [Snakemake](https://snakemake.readthedocs.io/) pipeline that builds a
 complete set of aligner/indexer indices from a reference genome **FASTA**
-(+ optional **GTF**), mirroring the layout of snakePipes'
+(+ optional **GTF**) covering the same tools as snakePipes'
 `createIndices`: STAR, HISAT2, bowtie2, bwa, bwa-mem2, bwa-meth
 (bwameth/bwameth2), **Bismark** and salmon -- plus the `.fai` / `.2bit`
 side products and a `gffread` transcriptome for decoy-aware salmon indexes.
+Each index set lands in a lowercase index dir named after its tool
+(`star_index/`, `bwa-mem2_index/`, ... -- see [What gets built](#what-gets-built)).
 
 It is driven by a small CLI (`workflow/scripts/aligner-index-builder`) that
 writes a run config and hands off to snakemake; tool versions are pinned
@@ -163,15 +165,15 @@ nothing). `sbatch` must be available wherever snakemake runs.
 
 | Tool | Index dir | Marker file | Notes |
 | --- | --- | --- | --- |
-| STAR | `STARIndex/` | `SAindex` | needs GTF (`--sjdbGTFfile`, overhang from `--sjdb-overhang`) |
-| HISAT2 | `HISAT2Index/` | `genome.6.ht2` | needs GTF (splice sites + exons extracted with `hisat2_extract_splice_sites.py`/`_exons.py`) |
-| bowtie2 | `BowtieIndex/` | `genome.rev.2.bt2` | FASTA only |
-| bwa | `BWAIndex/` | `genome.fa.sa` | FASTA only |
-| bwa-mem2 | `BWA-MEM2Index/` | `genome.fa.bwt.2bit.64` | FASTA only |
-| bwa-meth | `BWAmethIndex/` | `genome.fa.bwameth.c2t.sa` | FASTA only; `bwameth.py index` |
-| bwa-meth (mem2) | `BWAmeth2Index/` | `genome.fa.bwameth.c2t.bwt.2bit.64` | FASTA only; `bwameth.py index-mem2` |
-| Bismark | `BismarkIndex/Bisulfite_Genome/` | `CT_conversion/BS_CT.1.bt2` | FASTA only; bowtie2-based (`bismark_genome_preparation --bowtie2`) |
-| salmon | `SalmonIndex/` | `seq.bin` | needs GTF; decoy-aware (transcripts via `gffread` + genome as decoys) |
+| STAR | `star_index/` | `SAindex` | needs GTF (`--sjdbGTFfile`, overhang from `--sjdb-overhang`) |
+| HISAT2 | `hisat2_index/` | `genome.6.ht2` | needs GTF (splice sites + exons extracted with `hisat2_extract_splice_sites.py`/`_exons.py`) |
+| bowtie2 | `bowtie2_index/` | `genome.rev.2.bt2` | FASTA only |
+| bwa | `bwa_index/` | `genome.fa.sa` | FASTA only |
+| bwa-mem2 | `bwa-mem2_index/` | `genome.fa.bwt.2bit.64` | FASTA only |
+| bwa-meth | `bwa-meth_index/` | `genome.fa.bwameth.c2t.sa` | FASTA only; `bwameth.py index` |
+| bwa-meth (mem2) | `bwa-meth2_index/` | `genome.fa.bwameth.c2t.bwt.2bit.64` | FASTA only; `bwameth.py index-mem2` |
+| Bismark | `bismark_index/` | `Bisulfite_Genome/CT_conversion/BS_CT.1.bt2` | FASTA only; bowtie2-based (`bismark_genome_preparation --bowtie2`). Point `bismark --genome` at `bismark_index/` (the parent, not the `Bisulfite_Genome/` subdir) |
+| salmon | `salmon_index/` | `seq.bin` | needs GTF; decoy-aware (transcripts via `gffread` + genome as decoys) |
 | — | `genome_fasta/` | `genome.fa`, `genome.fa.fai`, `genome.2bit` | always; `samtools faidx` + `faToTwoBit` |
 | — | `annotation/` | `genes.gtf`, `transcripts.fa` | when a GTF is given |
 
@@ -193,15 +195,15 @@ results/GRCh38/
 ├── annotation/
 │   ├── genes.gtf               # normalized annotation
 │   └── transcripts.fa          # gffread transcriptome
-├── STARIndex/
-├── HISAT2Index/
-├── BowtieIndex/
-├── BWAIndex/
-├── BWA-MEM2Index/
-├── BWAmethIndex/
-├── BWAmeth2Index/
-├── BismarkIndex/Bisulfite_Genome/
-├── SalmonIndex/
+├── star_index/
+├── hisat2_index/
+├── bowtie2_index/
+├── bwa_index/
+├── bwa-mem2_index/
+├── bwa-meth_index/
+├── bwa-meth2_index/
+├── bismark_index/Bisulfite_Genome/
+├── salmon_index/
 └── pipeline_info/
     ├── logs/                   # per-rule logs + config_resolution.log
     └── benchmarks/             # per-rule timing/peak-memory tables

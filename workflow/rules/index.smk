@@ -1,8 +1,8 @@
 # =============================================================================
 # Index-building rules. Each tool gets its own rule and writes into its own
-# directory under OUTDIR (STARIndex/, HISAT2Index/, BowtieIndex/, BWAIndex/,
-# BWA-MEM2Index/, BWAmeth{2}Index/, BismarkIndex/, SalmonIndex/) plus the
-# shared genome_fasta/ and annotation/ side-products.
+# directory under OUTDIR (star_index/, hisat2_index/, bowtie2_index/,
+# bwa_index/, bwa-mem2_index/, bwa-meth{2}_index/, bismark_index/,
+# salmon_index/) plus the shared genome_fasta/ and annotation/ side-products.
 #
 # Rules whose tool needs the GTF (STAR, HISAT2, salmon) are defined only when
 # a GTF was given -- common.smk drops those tools from TOOLS otherwise.
@@ -85,7 +85,7 @@ rule star_index:
         fasta=GENOME_FASTA,
         gtf=GENES_GTF if GENES_GTF else [],
     output:
-        directory(os.path.join(OUTDIR, "STARIndex")),
+        directory(os.path.join(OUTDIR, "star_index")),
     params:
         sjdb_overhang=config.get("sjdb_overhang", 100),
         gtf_arg=(f"--sjdbGTFfile {GENES_GTF} " if GENES_GTF else ""),
@@ -127,7 +127,7 @@ if GENES_GTF:
         input:
             GENES_GTF,
         output:
-            os.path.join(OUTDIR, "HISAT2Index", "splice_sites.tsv"),
+            os.path.join(OUTDIR, "hisat2_index", "splice_sites.tsv"),
         threads: get_resources("hisat2_splicesites")["threads"]
         resources:
             mem_mb=get_resources("hisat2_splicesites")["mem_mb"],
@@ -139,14 +139,14 @@ if GENES_GTF:
         conda:
             HISAT2_ENV
         shell:
-            "mkdir -p {OUTDIR}/HISAT2Index && "
+            "mkdir -p {OUTDIR}/hisat2_index && "
             "hisat2_extract_splice_sites.py {input} > {output}"
 
     rule hisat2_exons:
         input:
             GENES_GTF,
         output:
-            os.path.join(OUTDIR, "HISAT2Index", "exons.tsv"),
+            os.path.join(OUTDIR, "hisat2_index", "exons.tsv"),
         threads: get_resources("hisat2_exons")["threads"]
         resources:
             mem_mb=get_resources("hisat2_exons")["mem_mb"],
@@ -158,16 +158,16 @@ if GENES_GTF:
         conda:
             HISAT2_ENV
         shell:
-            "mkdir -p {OUTDIR}/HISAT2Index && "
+            "mkdir -p {OUTDIR}/hisat2_index && "
             "hisat2_extract_exons.py {input} > {output}"
 
     rule hisat2_index:
         input:
             fasta=GENOME_FASTA,
-            splicesites=os.path.join(OUTDIR, "HISAT2Index", "splice_sites.tsv"),
-            exons=os.path.join(OUTDIR, "HISAT2Index", "exons.tsv"),
+            splicesites=os.path.join(OUTDIR, "hisat2_index", "splice_sites.tsv"),
+            exons=os.path.join(OUTDIR, "hisat2_index", "exons.tsv"),
         output:
-            os.path.join(OUTDIR, "HISAT2Index", "genome.6.ht2"),
+            os.path.join(OUTDIR, "hisat2_index", "genome.6.ht2"),
         threads: get_resources("hisat2_index")["threads"]
         resources:
             mem_mb=get_resources("hisat2_index")["mem_mb"],
@@ -182,7 +182,7 @@ if GENES_GTF:
             "hisat2-build -q -p {threads} "
             "--ss {input.splicesites} "
             "--exon {input.exons} "
-            "{input.fasta} {OUTDIR}/HISAT2Index/genome"
+            "{input.fasta} {OUTDIR}/hisat2_index/genome"
 
 
 # -----------------------------------------------------------------------------
@@ -192,7 +192,7 @@ rule bowtie2_index:
     input:
         GENOME_FASTA,
     output:
-        os.path.join(OUTDIR, "BowtieIndex", "genome.rev.2.bt2"),
+        os.path.join(OUTDIR, "bowtie2_index", "genome.rev.2.bt2"),
     threads: get_resources("bowtie2_index")["threads"]
     resources:
         mem_mb=get_resources("bowtie2_index")["mem_mb"],
@@ -204,8 +204,8 @@ rule bowtie2_index:
     conda:
         BOWTIE2_ENV
     shell:
-        "mkdir -p {OUTDIR}/BowtieIndex && "
-        "bowtie2-build --threads {threads} {input} {OUTDIR}/BowtieIndex/genome"
+        "mkdir -p {OUTDIR}/bowtie2_index && "
+        "bowtie2-build --threads {threads} {input} {OUTDIR}/bowtie2_index/genome"
 
 
 # -----------------------------------------------------------------------------
@@ -216,7 +216,7 @@ rule bwa_index:
     input:
         GENOME_FASTA,
     output:
-        os.path.join(OUTDIR, "BWAIndex", "genome.fa.sa"),
+        os.path.join(OUTDIR, "bwa_index", "genome.fa.sa"),
     threads: get_resources("bwa_index")["threads"]
     resources:
         mem_mb=get_resources("bwa_index")["mem_mb"],
@@ -228,16 +228,16 @@ rule bwa_index:
     conda:
         BWA_ENV
     shell:
-        "mkdir -p {OUTDIR}/BWAIndex && "
-        "ln -sf {input} {OUTDIR}/BWAIndex/genome.fa && "
-        "bwa index {OUTDIR}/BWAIndex/genome.fa"
+        "mkdir -p {OUTDIR}/bwa_index && "
+        "ln -sf {input} {OUTDIR}/bwa_index/genome.fa && "
+        "bwa index {OUTDIR}/bwa_index/genome.fa"
 
 
 rule bwa_mem2_index:
     input:
         GENOME_FASTA,
     output:
-        os.path.join(OUTDIR, "BWA-MEM2Index", "genome.fa.bwt.2bit.64"),
+        os.path.join(OUTDIR, "bwa-mem2_index", "genome.fa.bwt.2bit.64"),
     threads: get_resources("bwa_mem2_index")["threads"]
     resources:
         mem_mb=get_resources("bwa_mem2_index")["mem_mb"],
@@ -249,9 +249,9 @@ rule bwa_mem2_index:
     conda:
         BWA_MEM2_ENV
     shell:
-        "mkdir -p {OUTDIR}/BWA-MEM2Index && "
-        "ln -sf {input} {OUTDIR}/BWA-MEM2Index/genome.fa && "
-        "bwa-mem2 index {OUTDIR}/BWA-MEM2Index/genome.fa"
+        "mkdir -p {OUTDIR}/bwa-mem2_index && "
+        "ln -sf {input} {OUTDIR}/bwa-mem2_index/genome.fa && "
+        "bwa-mem2 index {OUTDIR}/bwa-mem2_index/genome.fa"
 
 
 # -----------------------------------------------------------------------------
@@ -261,7 +261,7 @@ rule bwameth_index:
     input:
         GENOME_FASTA,
     output:
-        os.path.join(OUTDIR, "BWAmethIndex", "genome.fa.bwameth.c2t.sa"),
+        os.path.join(OUTDIR, "bwa-meth_index", "genome.fa.bwameth.c2t.sa"),
     threads: get_resources("bwameth_index")["threads"]
     resources:
         mem_mb=get_resources("bwameth_index")["mem_mb"],
@@ -273,16 +273,16 @@ rule bwameth_index:
     conda:
         BWAMETH_ENV
     shell:
-        "mkdir -p {OUTDIR}/BWAmethIndex && "
-        "ln -sf {input} {OUTDIR}/BWAmethIndex/genome.fa && "
-        "bwameth.py index {OUTDIR}/BWAmethIndex/genome.fa"
+        "mkdir -p {OUTDIR}/bwa-meth_index && "
+        "ln -sf {input} {OUTDIR}/bwa-meth_index/genome.fa && "
+        "bwameth.py index {OUTDIR}/bwa-meth_index/genome.fa"
 
 
 rule bwameth2_index:
     input:
         GENOME_FASTA,
     output:
-        os.path.join(OUTDIR, "BWAmeth2Index", "genome.fa.bwameth.c2t.bwt.2bit.64"),
+        os.path.join(OUTDIR, "bwa-meth2_index", "genome.fa.bwameth.c2t.bwt.2bit.64"),
     threads: get_resources("bwameth2_index")["threads"]
     resources:
         mem_mb=get_resources("bwameth2_index")["mem_mb"],
@@ -294,9 +294,9 @@ rule bwameth2_index:
     conda:
         BWAMETH_ENV
     shell:
-        "mkdir -p {OUTDIR}/BWAmeth2Index && "
-        "ln -sf {input} {OUTDIR}/BWAmeth2Index/genome.fa && "
-        "bwameth.py index-mem2 {OUTDIR}/BWAmeth2Index/genome.fa"
+        "mkdir -p {OUTDIR}/bwa-meth2_index && "
+        "ln -sf {input} {OUTDIR}/bwa-meth2_index/genome.fa && "
+        "bwameth.py index-mem2 {OUTDIR}/bwa-meth2_index/genome.fa"
 
 
 # -----------------------------------------------------------------------------
@@ -307,7 +307,7 @@ rule bismark_index:
     input:
         GENOME_FASTA,
     output:
-        directory(os.path.join(OUTDIR, "BismarkIndex", "Bisulfite_Genome")),
+        directory(os.path.join(OUTDIR, "bismark_index", "Bisulfite_Genome")),
     threads: get_resources("bismark_index")["threads"]
     resources:
         mem_mb=get_resources("bismark_index")["mem_mb"],
@@ -319,11 +319,11 @@ rule bismark_index:
     conda:
         BISMARK_ENV
     shell:
-        "mkdir -p {OUTDIR}/BismarkIndex && "
-        "ln -sf {input} {OUTDIR}/BismarkIndex/genome.fa && "
+        "mkdir -p {OUTDIR}/bismark_index && "
+        "ln -sf {input} {OUTDIR}/bismark_index/genome.fa && "
         "bismark_genome_preparation --bowtie2 "
         "--path_to_aligner \"$(dirname \"$(command -v bowtie2)\")\" "
-        "{OUTDIR}/BismarkIndex"
+        "{OUTDIR}/bismark_index"
 
 
 # -----------------------------------------------------------------------------
@@ -401,9 +401,9 @@ if GENES_GTF:
             fasta=GENOME_FASTA,
             transcripts=TRANSCRIPTS_FA,
         output:
-            seq_bin=os.path.join(OUTDIR, "SalmonIndex", "seq.bin"),
-            seq_fa=temp(os.path.join(OUTDIR, "SalmonIndex", "seq.fa")),
-            decoys=os.path.join(OUTDIR, "SalmonIndex", "decoys.txt"),
+            seq_bin=os.path.join(OUTDIR, "salmon_index", "seq.bin"),
+            seq_fa=temp(os.path.join(OUTDIR, "salmon_index", "seq.fa")),
+            decoys=os.path.join(OUTDIR, "salmon_index", "decoys.txt"),
         params:
             kmer=config.get("salmon_kmer", 31),
         threads: get_resources("salmon_index")["threads"]
@@ -417,8 +417,8 @@ if GENES_GTF:
         conda:
             SALMON_ENV
         shell:
-            "mkdir -p {OUTDIR}/SalmonIndex && "
+            "mkdir -p {OUTDIR}/salmon_index && "
             "grep '^>' {input.fasta} | cut -d' ' -f1 | tr -d '>' > {output.decoys} && "
             "cat {input.transcripts} {input.fasta} > {output.seq_fa} && "
             "salmon index -p {threads} -t {output.seq_fa} "
-            "-d {output.decoys} -i {OUTDIR}/SalmonIndex -k {params.kmer}"
+            "-d {output.decoys} -i {OUTDIR}/salmon_index -k {params.kmer}"

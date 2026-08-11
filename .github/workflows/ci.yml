@@ -42,15 +42,15 @@ jobs:
           test -s results/test/annotation/transcripts.fa
 
           # Every tool index, marked by a file the rule actually writes.
-          test -s results/test/STARIndex/SAindex
-          test -s results/test/HISAT2Index/genome.6.ht2
-          test -s results/test/BowtieIndex/genome.rev.2.bt2
-          test -s results/test/BWAIndex/genome.fa.sa
-          test -s results/test/BWA-MEM2Index/genome.fa.bwt.2bit.64
-          test -s results/test/BWAmethIndex/genome.fa.bwameth.c2t.sa
-          test -s results/test/BWAmeth2Index/genome.fa.bwameth.c2t.bwt.2bit.64
-          test -s results/test/BismarkIndex/Bisulfite_Genome/CT_conversion/BS_CT.1.bt2
-          test -s results/test/SalmonIndex/seq.bin
+          test -s results/test/star_index/SAindex
+          test -s results/test/hisat2_index/genome.6.ht2
+          test -s results/test/bowtie2_index/genome.rev.2.bt2
+          test -s results/test/bwa_index/genome.fa.sa
+          test -s results/test/bwa-mem2_index/genome.fa.bwt.2bit.64
+          test -s results/test/bwa-meth_index/genome.fa.bwameth.c2t.sa
+          test -s results/test/bwa-meth2_index/genome.fa.bwameth.c2t.bwt.2bit.64
+          test -s results/test/bismark_index/Bisulfite_Genome/CT_conversion/BS_CT.1.bt2
+          test -s results/test/salmon_index/seq.bin
 
   guards:
     # Negative + positive edge-case tests for the CLI and the parse-time /
@@ -121,7 +121,7 @@ jobs:
             echo "ERROR: no-GTF run with a GTF-free tool must dry-run"; FAIL=1
           elif ! grep -q "skipping GTF-dependent tools" "$T/nogtf.log"; then
             echo "ERROR: no-GTF warning not shown"; FAIL=1
-          elif grep -q "STARIndex" "$T/nogtf.log"; then
+          elif grep -q "star_index" "$T/nogtf.log"; then
             echo "ERROR: STAR index was planned without a GTF"; FAIL=1
           fi
 
