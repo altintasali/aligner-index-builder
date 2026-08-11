@@ -22,6 +22,7 @@ Companion of [TEtranscripts-pipe](https://github.com/altintasali/TEtranscripts-p
 - [Requirements](#requirements)
 - [Install](#install)
 - [Usage](#usage)
+- [HPC / SLURM](#hpc--slurm)
 - [What gets built](#what-gets-built)
 - [Output layout](#output-layout)
 - [Direct snakemake use](#direct-snakemake-use)
@@ -102,11 +103,61 @@ A run always produces the FASTA (normalized + decompressed) with `.fai` and
 | `--star-extra FLAGS` | extra `STAR --runMode genomeGenerate` flags (e.g. small-genome flags, see [Caveats](#caveats)) |
 | `--salmon-kmer N` | salmon k-mer length (default 31) |
 | `--cores N` | snakemake `--cores` (default 1) |
+| `--slurm` | submit jobs to SLURM via the bundled profile `workflow/profiles/slurm` (see [HPC / SLURM](#hpc--slurm)) |
 | `--dry-run` | write the config and print the snakemake plan, run nothing |
 | `--keep-temp` | keep intermediates snakemake would delete |
 | `--snakemake-options ARGS` | extra snakemake arguments, passed through verbatim (quoted) |
 | `-v, --verbose` | print snakemake's shell commands |
 | `--version` | print version |
+
+## HPC / SLURM
+
+The repo ships a bundled [Snakemake workflow profile](https://snakemake.readthedocs.io/en/stable/snakefiles/deployment.html)
+for SLURM clusters (`workflow/profiles/slurm/config.yaml`). Pass `--slurm`
+to the CLI and every job is submitted with `sbatch` instead of running
+locally:
+
+```bash
+python workflow/scripts/aligner-index-builder \
+  --fasta genome.fa --gtf genes.gtf \
+  -o results/GRCh38 --tools all --slurm
+```
+
+The same profile works for direct snakemake runs (from the repo root):
+
+```bash
+snakemake --configfile results/GRCh38/GRCh38.config.yaml \
+  --workflow-profile workflow/profiles/slurm --cores 64
+snakemake --configfile results/GRCh38/GRCh38.config.yaml \
+  --workflow-profile workflow/profiles/slurm -n   # dry-run, nothing submitted
+```
+
+How jobs are sized:
+
+- Each rule's `threads`, `mem_mb` and `runtime` come from
+  `workflow/default-config/resources.yaml`. For a real genome the defaults
+  are middle-of-the-road; add a `resources:` block to the generated config
+  (deep-merged over the defaults) to override e.g. STAR's 48 GB, or pass
+  `--snakemake-options '--default-resources mem_mb=... runtime=...'`.
+- The profile's own `default-resources` only cover rules that declare none.
+
+Cluster specifics to edit in `workflow/profiles/slurm/config.yaml`:
+
+- `slurm_account` (`icmm_dm`) and `qos` (`normal`) are the ICMM group values
+  — replace them if you are on another cluster or in another group.
+- `slurm_partition` is intentionally unset so `sbatch` uses the cluster's
+  default partition; set it only if yours has no default.
+- `latency-wait: 60` gives NFS time to show up after STAR/Bismark finish
+  (they write `directory()` outputs); bump it if you ever see spurious
+  "missing files after X seconds" failures.
+
+Compute nodes need the tools: the workflow runs without `--sdm conda` (each
+job inherits the submit environment), so the pre-built environment must be
+visible there — prepend its `bin` to `PATH` on the nodes, e.g. with
+`export PATH="$PREFIX/bin:$PATH"` (see [Install](#install)).
+
+`--slurm` also works with `--dry-run` (validates the profile, submits
+nothing). `sbatch` must be available wherever snakemake runs.
 
 ## What gets built
 

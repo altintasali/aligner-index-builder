@@ -146,6 +146,11 @@ def _build_parser():
         help="snakemake --cores (default 1)",
     )
     parser.add_argument(
+        "--slurm", action="store_true",
+        help="submit jobs to SLURM via the bundled workflow profile "
+             "(workflow/profiles/slurm)",
+    )
+    parser.add_argument(
         "--dry-run", action="store_true",
         help="write the config and print the snakemake plan without running "
              "any jobs",
@@ -250,6 +255,8 @@ def main(argv=None):
     ]
     if args.dry_run:
         cmd.append("-n")
+    if args.slurm:
+        cmd += ["--workflow-profile", os.path.join(WORKFLOW_DIR, "profiles", "slurm")]
     if args.keep_temp:
         cmd.append("--keep-temp")
     if args.snakemake_options:

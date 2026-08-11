@@ -12,7 +12,7 @@ resources:
   prepare_gtf: {threads: 1, mem_mb: 2000, runtime: 30}
   fasta_fai: {threads: 1, mem_mb: 2000, runtime: 30}
   fasta_2bit: {threads: 1, mem_mb: 8000, runtime: 60}
-  star_index: {threads: 8, mem_mb: 32000, runtime: 480}
+  star_index: {threads: 8, mem_mb: 48000, runtime: 480}
   hisat2_splicesites: {threads: 1, mem_mb: 2000, runtime: 30}
   hisat2_exons: {threads: 1, mem_mb: 2000, runtime: 30}
   hisat2_index: {threads: 8, mem_mb: 16000, runtime: 240}

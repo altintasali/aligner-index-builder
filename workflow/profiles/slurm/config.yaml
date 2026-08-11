@@ -1,0 +1,36 @@
+# =============================================================================
+# Snakemake workflow profile for SLURM clusters.
+# Usage (via the CLI):
+#   aligner-index-builder --fasta genome.fa --gtf genes.gtf -o results/GRCh38 \
+#     --slurm
+# or directly:
+#   snakemake --workflow-profile workflow/profiles/slurm
+#
+# No --sdm conda here: the pre-built environment ships every tool, so each
+# job just inherits the submit environment. Make sure the env (or its bin dir
+# on PATH) is visible from the compute nodes -- see README "HPC / SLURM".
+#
+# Per-rule threads/mem_mb/runtime come from
+# workflow/default-config/resources.yaml (overridable per-run via a
+# `resources:` block in the run config) and are what actually size each SLURM
+# job; the defaults below only apply to anything resources.yaml doesn't cover.
+#
+# slurm_account is set to the ICMM_DM group account and qos to "normal";
+# replace them with your cluster's values if you are not in that group.
+#
+# slurm_partition is intentionally left unset so sbatch uses the cluster's
+# default partition. If your cluster has no default partition, set
+# slurm_partition here.
+# =============================================================================
+executor: slurm
+jobs: 50
+default-resources:
+  slurm_account: "icmm_dm"
+  qos: "normal"
+  mem_mb: 4000
+  runtime: 60
+restart-times: 2
+max-jobs-per-second: 1
+max-status-checks-per-second: 1
+latency-wait: 60
+local-cores: 4

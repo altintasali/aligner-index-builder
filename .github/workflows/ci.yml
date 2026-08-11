@@ -69,7 +69,7 @@ jobs:
           # GitHub Actions' runner executes this block under `set -e` and
           # injects a `/usr/bin/clear_console -q` call into the exit path.
           # That helper exits non-zero on non-TTY runners, so under `set -e`
-          # it would flip an otherwise fully-passing run (all 6 checks done,
+          # it would flip an otherwise fully-passing run (all 7 checks done,
           # FAIL=0) into a zero-output "Process completed with exit code 1".
           # This script reports its own failures via $FAIL and `exit $FAIL`,
           # so -e is explicitly disabled here; -u and pipefail are kept.
@@ -78,7 +78,7 @@ jobs:
           FAIL=0
           fixture=.tests/resources
 
-          echo "[guards] 1/6 CLI refuses a missing local fasta"
+          echo "[guards] 1/7 CLI refuses a missing local fasta"
           if python workflow/scripts/aligner-index-builder \
                --fasta /nonexistent/ref.fa --gtf "$fixture/genome.gtf" \
                -o "$T/out1" --tools bowtie2 >"$T/cli1.log" 2>&1; then
@@ -87,7 +87,7 @@ jobs:
             echo "ERROR: wrong message for a missing local fasta"; FAIL=1
           fi
 
-          echo "[guards] 2/6 file:// URL input (download + gzip decompress)"
+          echo "[guards] 2/7 file:// URL input (download + gzip decompress)"
           gzip -c "$fixture/genome.fa" > "$T/genome.fa.gz"
           printf 'outdir: %s\ngtf:\nfasta: file://%s/genome.fa.gz\ntools: [bowtie2]\n' \
             "$T/out2" "$T" > "$T/url.yaml"
@@ -99,7 +99,7 @@ jobs:
             echo "ERROR: genome.fa not produced from the file:// URL"; FAIL=1
           fi
 
-          echo "[guards] 3/6 chromosome mismatch is a clear error"
+          echo "[guards] 3/7 chromosome mismatch is a clear error"
           printf '>zzz_only\nACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGT\n' \
             > "$T/wrong.fa"
           printf 'outdir: %s\nfasta: %s\ngtf: %s\ntools: [bowtie2]\n' \
@@ -113,7 +113,7 @@ jobs:
             echo "ERROR: wrong failure message for chromosome mismatch"; FAIL=1
           fi
 
-          echo "[guards] 4/6 missing GTF drops star but keeps bowtie2"
+          echo "[guards] 4/7 missing GTF drops star but keeps bowtie2"
           printf 'outdir: %s\nfasta: %s\ntools: [star, bowtie2]\n' \
             "$T/out4" "$fixture/genome.fa" > "$T/nogtf.yaml"
           snakemake --configfile "$T/nogtf.yaml" -n --cores 1 >"$T/nogtf.log" 2>&1
@@ -125,7 +125,7 @@ jobs:
             echo "ERROR: STAR index was planned without a GTF"; FAIL=1
           fi
 
-          echo "[guards] 5/6 all requested tools need a GTF, none given"
+          echo "[guards] 5/7 all requested tools need a GTF, none given"
           printf 'outdir: %s\nfasta: %s\ntools: [star]\n' \
             "$T/out5" "$fixture/genome.fa" > "$T/staronly.yaml"
           snakemake --configfile "$T/staronly.yaml" -n --cores 1 \
@@ -136,7 +136,7 @@ jobs:
             echo "ERROR: wrong message for star-only without a GTF"; FAIL=1
           fi
 
-          echo "[guards] 6/6 CLI rejects unknown tools; dry-run writes its config"
+          echo "[guards] 6/7 CLI rejects unknown tools; dry-run writes its config"
           if python workflow/scripts/aligner-index-builder \
                --fasta "$fixture/genome.fa" -o "$T/out6" --tools foo \
                >"$T/cli6.log" 2>&1; then
@@ -150,6 +150,18 @@ jobs:
             echo "ERROR: CLI dry-run failed (see $T/dry.log)"; FAIL=1
           elif [[ ! -f "$T/out6b/out6b.config.yaml" ]]; then
             echo "ERROR: CLI dry-run did not write its config file"; FAIL=1
+          fi
+
+          echo "[guards] 7/7 SLURM profile parses; CLI --slurm dry-runs"
+          if ! python workflow/scripts/aligner-index-builder \
+               --fasta "$fixture/genome.fa" --gtf "$fixture/genome.gtf" \
+               -o "$T/out7" --tools bowtie2 \
+               --slurm --dry-run >"$T/slurm.log" 2>&1; then
+            echo "ERROR: CLI --slurm dry-run failed (see $T/slurm.log)"; FAIL=1
+          elif ! grep -q -- "--workflow-profile .*profiles/slurm" "$T/slurm.log"; then
+            echo "ERROR: --slurm did not pass the bundled profile"; FAIL=1
+          elif ! python -c "import yaml,sys; yaml.safe_load(open('workflow/profiles/slurm/config.yaml'))"; then
+            echo "ERROR: workflow/profiles/slurm/config.yaml is not valid YAML"; FAIL=1
           fi
 
           echo "[guards] done, FAIL=$FAIL"
