@@ -143,6 +143,22 @@ How jobs are sized:
   (deep-merged over the defaults) to override e.g. STAR's 48 GB, or pass
   `--snakemake-options '--default-resources mem_mb=... runtime=...'`.
 - The profile's own `default-resources` only cover rules that declare none.
+- `hisat2_index` is the big one: the splice-aware build (`hisat2-build
+  --ss/--exon`, embedding the annotated splice sites and exons into the
+  index) needs ~200 GB RAM for human-sized genomes, so it requests a 200 GiB
+  node (`mem_mb: 204800`). If your cluster has no big-mem node, build the
+  plain index instead (~8-16 GB): in `workflow/rules/index.smk`, remove the
+  `--ss ... --exon ...` flags and the `splicesites:`/`exons:` inputs from the
+  `hisat2_index` rule, and lower its memory in the generated config:
+
+  ```yaml
+  resources:
+    hisat2_index:
+      mem_mb: 16000
+  ```
+
+  HISAT2 then finds splice junctions de novo at alignment time. Note that
+  this edits the workflow source, so a later `git pull` reverts it.
 
 Cluster specifics to edit in `workflow/profiles/slurm/config.yaml`:
 

@@ -15,12 +15,12 @@ resources:
   star_index: {threads: 8, mem_mb: 48000, runtime: 480}
   hisat2_splicesites: {threads: 1, mem_mb: 2000, runtime: 30}
   hisat2_exons: {threads: 1, mem_mb: 2000, runtime: 30}
-  hisat2_index: {threads: 8, mem_mb: 16000, runtime: 240}
-  bowtie2_index: {threads: 8, mem_mb: 8000, runtime: 240}
-  bwa_index: {threads: 4, mem_mb: 8000, runtime: 240}
-  bwa_mem2_index: {threads: 4, mem_mb: 8000, runtime: 240}
-  bwameth_index: {threads: 4, mem_mb: 8000, runtime: 240}
-  bwameth2_index: {threads: 4, mem_mb: 8000, runtime: 240}
-  bismark_index: {threads: 4, mem_mb: 8000, runtime: 240}
+  hisat2_index: {threads: 8, mem_mb: 204800, runtime: 240}
+  bowtie2_index: {threads: 8, mem_mb: 16000, runtime: 240}
+  bwa_index: {threads: 8, mem_mb: 16000, runtime: 240}
+  bwa_mem2_index: {threads: 8, mem_mb: 32768, runtime: 240}
+  bwameth_index: {threads: 8, mem_mb: 16000, runtime: 240}
+  bwameth2_index: {threads: 8, mem_mb: 32768, runtime: 240}
+  bismark_index: {threads: 8, mem_mb: 16000, runtime: 240}
   transcriptome_fasta: {threads: 1, mem_mb: 4000, runtime: 30}
   salmon_index: {threads: 8, mem_mb: 16000, runtime: 120}
