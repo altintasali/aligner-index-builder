@@ -12,21 +12,21 @@ resources:
   prepare_gtf: {threads: 1, mem_mb: 2000, runtime: 30}
   fasta_fai: {threads: 1, mem_mb: 2000, runtime: 30}
   fasta_2bit: {threads: 1, mem_mb: 8000, runtime: 60}
-  star_index: {threads: 8, mem_mb: 48000, runtime: 480}
+  star: {threads: 8, mem_mb: 48000, runtime: 480}
   hisat2_splicesites: {threads: 1, mem_mb: 2000, runtime: 30}
   hisat2_exons: {threads: 1, mem_mb: 2000, runtime: 30}
-  hisat2_index: {threads: 8, mem_mb: 204800, runtime: 240}
-  bowtie2_index: {threads: 8, mem_mb: 16000, runtime: 240}
-  bwa_index: {threads: 8, mem_mb: 16000, runtime: 240}
+  hisat2: {threads: 8, mem_mb: 204800, runtime: 240}
+  bowtie2: {threads: 8, mem_mb: 16000, runtime: 240}
+  bwa: {threads: 8, mem_mb: 16000, runtime: 240}
   # bwa-mem2 index peak RAM scales with genome size and threads; 32 GB is too
   # little for GRCm38/GRCh38 at 8 threads (bwa-mem2 exits 1 on allocation
   # failure instead of being OOM-killed). bwameth2 runs the same build.
-  bwa_mem2_index: {threads: 8, mem_mb: 65536, runtime: 240}
-  bwameth_index: {threads: 8, mem_mb: 16000, runtime: 240}
-  bwameth2_index: {threads: 8, mem_mb: 65536, runtime: 240}
-  bismark_index: {threads: 8, mem_mb: 16000, runtime: 240}
+  bwa_mem2: {threads: 8, mem_mb: 65536, runtime: 240}
+  bwameth: {threads: 8, mem_mb: 16000, runtime: 240}
+  bwameth2: {threads: 8, mem_mb: 65536, runtime: 240}
+  bismark: {threads: 8, mem_mb: 16000, runtime: 240}
   transcriptome_fasta: {threads: 1, mem_mb: 4000, runtime: 30}
-  salmon_index: {threads: 8, mem_mb: 16000, runtime: 120}
+  salmon: {threads: 8, mem_mb: 16000, runtime: 120}
   # MultiQC report + its inputs (pipeline_info/ versions/ under outdir).
   software_versions: {threads: 1, mem_mb: 2000, runtime: 30}
   resources_used: {threads: 1, mem_mb: 2000, runtime: 60}

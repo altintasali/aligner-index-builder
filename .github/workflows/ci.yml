@@ -42,15 +42,15 @@ jobs:
           test -s results/test/annotation/transcripts.fa
 
           # Every tool index, marked by a file the rule actually writes.
-          test -s results/test/star_index/SAindex
-          test -s results/test/hisat2_index/genome.6.ht2
-          test -s results/test/bowtie2_index/genome.rev.2.bt2
-          test -s results/test/bwa_index/genome.fa.sa
-          test -s results/test/bwa-mem2_index/genome.fa.bwt.2bit.64
-          test -s results/test/bwa-meth_index/genome.fa.bwameth.c2t.sa
-          test -s results/test/bwa-meth2_index/genome.fa.bwameth.c2t.bwt.2bit.64
-          test -s results/test/bismark_index/Bisulfite_Genome/CT_conversion/BS_CT.1.bt2
-          test -s results/test/salmon_index/seq.bin
+          test -s results/test/index/star/SAindex
+          test -s results/test/index/hisat2/genome.6.ht2
+          test -s results/test/index/bowtie2/genome.rev.2.bt2
+          test -s results/test/index/bwa/genome.fa.sa
+          test -s results/test/index/bwa-mem2/genome.fa.bwt.2bit.64
+          test -s results/test/index/bwameth/genome.fa.bwameth.c2t.sa
+          test -s results/test/index/bwameth2/genome.fa.bwameth.c2t.bwt.2bit.64
+          test -s results/test/index/bismark/Bisulfite_Genome/CT_conversion/BS_CT.1.bt2
+          test -s results/test/index/salmon/seq.bin
 
           # MultiQC report + the custom-content / versions inputs it aggregates.
           test -s results/test/qc/multiqc_report.html
@@ -138,8 +138,10 @@ jobs:
             echo "ERROR: no-GTF run with a GTF-free tool must dry-run"; FAIL=1
           elif ! grep -q "skipping GTF-dependent tools" "$T/nogtf.log"; then
             echo "ERROR: no-GTF warning not shown"; FAIL=1
-          elif grep -q "star_index" "$T/nogtf.log"; then
-            echo "ERROR: STAR index was planned without a GTF"; FAIL=1
+          elif grep -q "localrule star:" "$T/nogtf.log"; then
+            echo "ERROR: STAR rule was planned without a GTF"; FAIL=1
+          elif ! grep -q "localrule bowtie2:" "$T/nogtf.log"; then
+            echo "ERROR: bowtie2 rule missing from the no-GTF plan"; FAIL=1
           fi
 
           echo "[guards] 5/9 all requested tools need a GTF, none given"

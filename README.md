@@ -4,11 +4,12 @@ A [Snakemake](https://snakemake.readthedocs.io/) pipeline that builds a
 complete set of aligner/indexer indices from a reference genome **FASTA**
 (+ optional **GTF**), inspired by the
 [snakePipes](https://github.com/maxplanck-ie/snakepipes) `createIndices`
-layout: STAR, HISAT2, bowtie2, bwa, bwa-mem2, bwa-meth
-(bwameth/bwameth2), **Bismark** and salmon -- plus the `.fai` / `.2bit`
+layout: STAR, HISAT2, bowtie2, bwa, bwa-mem2, bwameth, bwameth2,
+**Bismark** and salmon -- plus the `.fai` / `.2bit`
 side products and a `gffread` transcriptome for decoy-aware salmon indexes.
-Each index set lands in a lowercase index dir named after its tool
-(`star_index/`, `bwa-mem2_index/`, ... -- see [What gets built](#what-gets-built)).
+Each tool's index set lands in its own lowercase dir under `<outdir>/index/`
+(`index/star/`, `index/bwa-mem2/`, `index/bwameth/`, ... -- see
+[What gets built](#what-gets-built)).
 Every run also produces a [MultiQC](https://multiqc.info/) report
 (`qc/multiqc_report.html`) summarising the reference and annotation, the
 per-index disk footprints, the resolved run configuration, per-rule resource
@@ -167,17 +168,17 @@ How jobs are sized:
   (deep-merged over the defaults) to override e.g. STAR's 48 GB, or pass
   `--snakemake-options '--default-resources mem_mb=... runtime=...'`.
 - The profile's own `default-resources` only cover rules that declare none.
-- `hisat2_index` is the big one: the splice-aware build (`hisat2-build
+- `hisat2` is the big one: the splice-aware build (`hisat2-build
   --ss/--exon`, embedding the annotated splice sites and exons into the
   index) needs ~200 GB RAM for human-sized genomes, so it requests a 200 GiB
   node (`mem_mb: 204800`). If your cluster has no big-mem node, build the
   plain index instead (~8-16 GB): in `workflow/rules/index.smk`, remove the
   `--ss ... --exon ...` flags and the `splicesites:`/`exons:` inputs from the
-  `hisat2_index` rule, and lower its memory in the generated config:
+  `hisat2` rule, and lower its memory in the generated config:
 
   ```yaml
   resources:
-    hisat2_index:
+    hisat2:
       mem_mb: 16000
   ```
 
@@ -206,15 +207,15 @@ nothing). `sbatch` must be available wherever snakemake runs.
 
 | Tool | Index dir | Marker file | Notes |
 | --- | --- | --- | --- |
-| STAR | `star_index/` | `SAindex` | needs GTF (`--sjdbGTFfile`, overhang from `--sjdb-overhang`) |
-| HISAT2 | `hisat2_index/` | `genome.6.ht2` | needs GTF (splice sites + exons extracted with `hisat2_extract_splice_sites.py`/`_exons.py`) |
-| bowtie2 | `bowtie2_index/` | `genome.rev.2.bt2` | FASTA only |
-| bwa | `bwa_index/` | `genome.fa.sa` | FASTA only |
-| bwa-mem2 | `bwa-mem2_index/` | `genome.fa.bwt.2bit.64` | FASTA only |
-| bwa-meth | `bwa-meth_index/` | `genome.fa.bwameth.c2t.sa` | FASTA only; `bwameth.py index` |
-| bwa-meth (mem2) | `bwa-meth2_index/` | `genome.fa.bwameth.c2t.bwt.2bit.64` | FASTA only; `bwameth.py index-mem2` |
-| Bismark | `bismark_index/` | `Bisulfite_Genome/CT_conversion/BS_CT.1.bt2` | FASTA only; bowtie2-based (`bismark_genome_preparation --bowtie2`). Point `bismark --genome` at `bismark_index/` (the parent, not the `Bisulfite_Genome/` subdir) |
-| salmon | `salmon_index/` | `seq.bin` | needs GTF; decoy-aware (transcripts via `gffread` + genome as decoys) |
+| STAR | `index/star/` | `SAindex` | needs GTF (`--sjdbGTFfile`, overhang from `--sjdb-overhang`) |
+| HISAT2 | `index/hisat2/` | `genome.6.ht2` | needs GTF (splice sites + exons extracted with `hisat2_extract_splice_sites.py`/`_exons.py`) |
+| bowtie2 | `index/bowtie2/` | `genome.rev.2.bt2` | FASTA only |
+| bwa | `index/bwa/` | `genome.fa.sa` | FASTA only |
+| bwa-mem2 | `index/bwa-mem2/` | `genome.fa.bwt.2bit.64` | FASTA only |
+| bwameth | `index/bwameth/` | `genome.fa.bwameth.c2t.sa` | FASTA only; `bwameth.py index` |
+| bwameth2 | `index/bwameth2/` | `genome.fa.bwameth.c2t.bwt.2bit.64` | FASTA only; `bwameth.py index-mem2` |
+| Bismark | `index/bismark/` | `Bisulfite_Genome/CT_conversion/BS_CT.1.bt2` | FASTA only; bowtie2-based (`bismark_genome_preparation --bowtie2`). Point `bismark --genome` at `index/bismark/` (the parent, not the `Bisulfite_Genome/` subdir) |
+| salmon | `index/salmon/` | `seq.bin` | needs GTF; decoy-aware (transcripts via `gffread` + genome as decoys) |
 | — | `genome_fasta/` | `genome.fa`, `genome.fa.fai`, `genome.2bit` | always; `samtools faidx` + `faToTwoBit` |
 | — | `annotation/` | `genes.gtf`, `transcripts.fa` | when a GTF is given |
 | — | `qc/` | `multiqc_report.html`, `multiqc_report_data/` | always; MultiQC report (see [MultiQC report](#multiqc-report)) |
@@ -237,15 +238,16 @@ results/GRCh38/
 ├── annotation/
 │   ├── genes.gtf               # normalized annotation
 │   └── transcripts.fa          # gffread transcriptome
-├── star_index/
-├── hisat2_index/
-├── bowtie2_index/
-├── bwa_index/
-├── bwa-mem2_index/
-├── bwa-meth_index/
-├── bwa-meth2_index/
-├── bismark_index/Bisulfite_Genome/
-├── salmon_index/
+├── index/
+│   ├── star/
+│   ├── hisat2/
+│   ├── bowtie2/
+│   ├── bwa/
+│   ├── bwa-mem2/
+│   ├── bwameth/
+│   ├── bwameth2/
+│   ├── bismark/Bisulfite_Genome/
+│   └── salmon/
 ├── versions/
 │   └── GRCh38_mqc_versions.yml     # tool versions for the report
 ├── qc/
@@ -394,7 +396,7 @@ plain `snakemake` runs use the activated environment directly.
   `--star-extra "--genomeSAindexNbases 7 --genomeChrBinNbits 16"` (printed by
   `.tests/generate_test_data.py`); real chromosomes are unaffected.
 - **STAR exit code**: STAR has a long-standing benign exit-time crash (a
-  segfault *after* all index files are written). `star_index` treats a
+  segfault *after* all index files are written). The `star` rule treats a
   non-zero exit as success if the core files actually landed on disk.
 - **macOS**: the pre-built env is Linux x86_64 only. Build it locally with
   conda (Option B) or run on CI/linux.

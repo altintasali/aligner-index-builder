@@ -89,8 +89,9 @@ if not _tools:
 TOOLS = _tools
 
 # -----------------------------------------------------------------------------
-# Output paths (lowercase index dirs)
+# Output paths (all per-tool index dirs live under <outdir>/index/<tool>/)
 # -----------------------------------------------------------------------------
+INDEX_DIR = os.path.join(OUTDIR, "index")
 GENOME_FASTA = os.path.join(OUTDIR, "genome_fasta", "genome.fa")
 GENOME_FAI = GENOME_FASTA + ".fai"
 GENOME_2BIT = os.path.join(OUTDIR, "genome_fasta", "genome.2bit")
@@ -100,18 +101,18 @@ CHROM_CHECK_OK = os.path.join(OUTDIR, "pipeline_info", "chrom_consistency.ok")
 CHROM_STATS = os.path.join(OUTDIR, "pipeline_info", "chrom_consistency.json")
 
 TOOL_TARGETS = {
-    "star": os.path.join(OUTDIR, "star_index"),
-    "hisat2": os.path.join(OUTDIR, "hisat2_index", "genome.6.ht2"),
-    "bowtie2": os.path.join(OUTDIR, "bowtie2_index", "genome.rev.2.bt2"),
-    "bwa": os.path.join(OUTDIR, "bwa_index", "genome.fa.sa"),
-    "bwa-mem2": os.path.join(OUTDIR, "bwa-mem2_index", "genome.fa.bwt.2bit.64"),
-    "bwameth": os.path.join(OUTDIR, "bwa-meth_index", "genome.fa.bwameth.c2t.sa"),
-    "bwameth2": os.path.join(OUTDIR, "bwa-meth2_index", "genome.fa.bwameth.c2t.bwt.2bit.64"),
-    "salmon": os.path.join(OUTDIR, "salmon_index", "seq.bin"),
+    "star": os.path.join(INDEX_DIR, "star"),
+    "hisat2": os.path.join(INDEX_DIR, "hisat2", "genome.6.ht2"),
+    "bowtie2": os.path.join(INDEX_DIR, "bowtie2", "genome.rev.2.bt2"),
+    "bwa": os.path.join(INDEX_DIR, "bwa", "genome.fa.sa"),
+    "bwa-mem2": os.path.join(INDEX_DIR, "bwa-mem2", "genome.fa.bwt.2bit.64"),
+    "bwameth": os.path.join(INDEX_DIR, "bwameth", "genome.fa.bwameth.c2t.sa"),
+    "bwameth2": os.path.join(INDEX_DIR, "bwameth2", "genome.fa.bwameth.c2t.bwt.2bit.64"),
+    "salmon": os.path.join(INDEX_DIR, "salmon", "seq.bin"),
     # star and bismark rules declare directory() outputs, so the targets are
     # the directories themselves; the marker files asserted in CI/tests live
-    # inside them (star_index/SAindex, bismark_index/Bisulfite_Genome/...).
-    "bismark": os.path.join(OUTDIR, "bismark_index", "Bisulfite_Genome"),
+    # inside them (index/star/SAindex, index/bismark/Bisulfite_Genome/...).
+    "bismark": os.path.join(INDEX_DIR, "bismark", "Bisulfite_Genome"),
 }
 
 
@@ -147,6 +148,18 @@ GENERATED_ENV_DIR = os.path.join(WORKFLOW_DIR, "envs", "generated")
 os.makedirs(GENERATED_ENV_DIR, exist_ok=True)
 
 
+def _pin(name, version):
+    """A conda spec `name=version` (or bare `name` when unpinned). Versions
+    that already carry an operator (e.g. gffread `>=0.12.6`) are appended
+    verbatim; naive `name={version}` would render `gffread=>=0.12.6`, which
+    conda rejects."""
+    if not version:
+        return name
+    if version[0] in "=<>":
+        return f"{name}{version}"
+    return f"{name}={version}"
+
+
 def _write_env(name, dependencies):
     path = f"{GENERATED_ENV_DIR}/{name}.yaml"
     with open(path, "w") as fh:
@@ -161,25 +174,25 @@ def _write_env(name, dependencies):
     return path
 
 
-STAR_ENV = _write_env("star", [f"star={V['star']}"])
-SAMTOOLS_ENV = _write_env("samtools", [f"samtools={V['samtools']}"])
-HISAT2_ENV = _write_env("hisat2", [f"hisat2={V['hisat2']}"])
-BOWTIE2_ENV = _write_env("bowtie2", [f"bowtie2={V['bowtie2']}"])
-BWA_ENV = _write_env("bwa", [f"bwa={V['bwa']}"])
-BWA_MEM2_ENV = _write_env("bwa_mem2", [f"bwa-mem2={V['bwa_mem2']}"])
+STAR_ENV = _write_env("star", [_pin("star", V["star"])])
+SAMTOOLS_ENV = _write_env("samtools", [_pin("samtools", V["samtools"])])
+HISAT2_ENV = _write_env("hisat2", [_pin("hisat2", V["hisat2"])])
+BOWTIE2_ENV = _write_env("bowtie2", [_pin("bowtie2", V["bowtie2"])])
+BWA_ENV = _write_env("bwa", [_pin("bwa", V["bwa"])])
+BWA_MEM2_ENV = _write_env("bwa_mem2", [_pin("bwa-mem2", V["bwa_mem2"])])
 BWAMETH_ENV = _write_env(
     "bwa_meth",
-    [f"bwa={V['bwa']}", f"bwa-mem2={V['bwa_mem2']}"]
-    + ([f"bwameth={V['bwameth']}"] if V["bwameth"] else ["bwameth"]),
+    [_pin("bwa", V["bwa"]), _pin("bwa-mem2", V["bwa_mem2"])]
+    + [_pin("bwameth", V["bwameth"])],
 )
 BISMARK_ENV = _write_env(
-    "bismark", [f"bismark={V['bismark']}", f"bowtie2={V['bowtie2']}"]
+    "bismark", [_pin("bismark", V["bismark"]), _pin("bowtie2", V["bowtie2"])]
 )
-GFFREAD_ENV = _write_env("gffread", [f"gffread={V['gffread']}"])
-SALMON_ENV = _write_env("salmon", [f"salmon={V['salmon']}"])
-UCSC_ENV = _write_env("ucsc", [f"ucsc-fatotwobit={V['ucsc_fatotwobit']}"])
+GFFREAD_ENV = _write_env("gffread", [_pin("gffread", V["gffread"])])
+SALMON_ENV = _write_env("salmon", [_pin("salmon", V["salmon"])])
+UCSC_ENV = _write_env("ucsc", [_pin("ucsc-fatotwobit", V["ucsc_fatotwobit"])])
 PYTHON_ENV = _write_env("python", ["python>=3.9"])
-MULTIQC_ENV = _write_env("multiqc", [f"multiqc={V['multiqc']}"])
+MULTIQC_ENV = _write_env("multiqc", [_pin("multiqc", V["multiqc"])])
 
 # -----------------------------------------------------------------------------
 # Versions recorded in the MultiQC report / Software Versions section
@@ -197,15 +210,15 @@ SNAKEMAKE_VERSION = snakemake.__version__
 # Index directories, keyed by tool name -- used by the resources_used rule to
 # report per-index disk usage. Mirrors the CLI's TOOL_DIRS mapping.
 TOOL_INDEX_DIRS = {
-    "star": os.path.join(OUTDIR, "star_index"),
-    "hisat2": os.path.join(OUTDIR, "hisat2_index"),
-    "bowtie2": os.path.join(OUTDIR, "bowtie2_index"),
-    "bwa": os.path.join(OUTDIR, "bwa_index"),
-    "bwa-mem2": os.path.join(OUTDIR, "bwa-mem2_index"),
-    "bwameth": os.path.join(OUTDIR, "bwa-meth_index"),
-    "bwameth2": os.path.join(OUTDIR, "bwa-meth2_index"),
-    "salmon": os.path.join(OUTDIR, "salmon_index"),
-    "bismark": os.path.join(OUTDIR, "bismark_index"),
+    "star": os.path.join(INDEX_DIR, "star"),
+    "hisat2": os.path.join(INDEX_DIR, "hisat2"),
+    "bowtie2": os.path.join(INDEX_DIR, "bowtie2"),
+    "bwa": os.path.join(INDEX_DIR, "bwa"),
+    "bwa-mem2": os.path.join(INDEX_DIR, "bwa-mem2"),
+    "bwameth": os.path.join(INDEX_DIR, "bwameth"),
+    "bwameth2": os.path.join(INDEX_DIR, "bwameth2"),
+    "salmon": os.path.join(INDEX_DIR, "salmon"),
+    "bismark": os.path.join(INDEX_DIR, "bismark"),
 }
 
 # -----------------------------------------------------------------------------
@@ -242,13 +255,13 @@ def all_benchmark_files():
     }
     _dir = os.path.join(OUTDIR, "pipeline_info", "benchmarks")
     _to_rule = {
-        "star": "star_index",
-        "bowtie2": "bowtie2_index",
-        "bwa": "bwa_index",
-        "bwa-mem2": "bwa_mem2_index",
-        "bwameth": "bwameth_index",
-        "bwameth2": "bwameth2_index",
-        "bismark": "bismark_index",
+        "star": "star",
+        "bowtie2": "bowtie2",
+        "bwa": "bwa",
+        "bwa-mem2": "bwa_mem2",
+        "bwameth": "bwameth",
+        "bwameth2": "bwameth2",
+        "bismark": "bismark",
     }
     files = [
         "prepare_genome", "fasta_fai", "fasta_2bit",
@@ -257,9 +270,9 @@ def all_benchmark_files():
         files += ["prepare_gtf", "chrom_consistency"]
     for tool in TOOLS:
         if tool == "hisat2":
-            files += ["hisat2_splicesites", "hisat2_exons", "hisat2_index"]
+            files += ["hisat2_splicesites", "hisat2_exons", "hisat2"]
         elif tool == "salmon":
-            files += ["transcriptome_fasta", "salmon_index"]
+            files += ["transcriptome_fasta", "salmon"]
         else:
             files.append(_to_rule[tool])
     return sorted(
