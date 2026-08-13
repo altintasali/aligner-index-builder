@@ -184,6 +184,14 @@ How jobs are sized:
 
   HISAT2 then finds splice junctions de novo at alignment time. Note that
   this edits the workflow source, so a later `git pull` reverts it.
+- `bwa_mem2`/`bwameth2` can rival `hisat2`: bwa-mem2's index build needs
+  ~50-90 GB for a human-sized genome and scales with the reference size, so
+  the defaults also request a 200 GiB node (`mem_mb: 204800`). An
+  undersized allocation is OOM-killed mid-build and `bwameth.py` surfaces it
+  as `return code was:-9` inside an otherwise-empty rule log — raise
+  `resources:` (or drop `threads` for the `bwa_mem2`/`bwameth2` rules, which
+  lowers peak RAM) rather than reading it as a tool error. Smaller genomes
+  can lower these in the generated config.
 
 Cluster specifics to edit in `workflow/profiles/slurm/config.yaml`:
 

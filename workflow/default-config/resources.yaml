@@ -18,12 +18,15 @@ resources:
   hisat2: {threads: 8, mem_mb: 204800, runtime: 240}
   bowtie2: {threads: 8, mem_mb: 16000, runtime: 240}
   bwa: {threads: 8, mem_mb: 16000, runtime: 240}
-  # bwa-mem2 index peak RAM scales with genome size and threads; 32 GB is too
-  # little for GRCm38/GRCh38 at 8 threads (bwa-mem2 exits 1 on allocation
-  # failure instead of being OOM-killed). bwameth2 runs the same build.
-  bwa_mem2: {threads: 8, mem_mb: 65536, runtime: 240}
+  # bwa-mem2 index peak RAM scales with genome size (roughly human-sized
+  # needs ~50-90 GB) and threads. A ~11 Gbp reference exceeds 64 GB: the
+  # build is OOM-killed mid-FMI-construction -- bwameth.py surfaces that as
+  # "return code was:-9" (SIGKILL) wrapped into exit 1, which SLURM logs as a
+  # plain non-zero exit. 200 GiB matches the hisat2 build that succeeds on a
+  # big-mem node; drop `threads` (and/or mem_mb) for smaller references.
+  bwa_mem2: {threads: 8, mem_mb: 204800, runtime: 240}
   bwameth: {threads: 8, mem_mb: 16000, runtime: 240}
-  bwameth2: {threads: 8, mem_mb: 65536, runtime: 240}
+  bwameth2: {threads: 8, mem_mb: 204800, runtime: 240}
   bismark: {threads: 8, mem_mb: 16000, runtime: 240}
   transcriptome_fasta: {threads: 1, mem_mb: 4000, runtime: 30}
   salmon: {threads: 8, mem_mb: 16000, runtime: 120}
