@@ -128,7 +128,7 @@ if GENES_GTF:
         input:
             GENES_GTF,
         output:
-            os.path.join(INDEX_DIR, "hisat2", "splice_sites.tsv"),
+            temp(os.path.join(INDEX_DIR, "hisat2", "splice_sites.tsv")),
         threads: get_resources("hisat2_splicesites")["threads"]
         resources:
             mem_mb=get_resources("hisat2_splicesites")["mem_mb"],
@@ -147,7 +147,7 @@ if GENES_GTF:
         input:
             GENES_GTF,
         output:
-            os.path.join(INDEX_DIR, "hisat2", "exons.tsv"),
+            temp(os.path.join(INDEX_DIR, "hisat2", "exons.tsv")),
         threads: get_resources("hisat2_exons")["threads"]
         resources:
             mem_mb=get_resources("hisat2_exons")["mem_mb"],
@@ -419,6 +419,10 @@ if GENES_GTF:
             os.path.join(OUTDIR, "pipeline_info", "logs", "salmon.log"),
         conda:
             SALMON_ENV
+        # decoys.txt must hold only the first whitespace-delimited field of each
+        # genome header and seq.fa must concatenate transcripts BEFORE the genome,
+        # otherwise Salmon misidentifies chromosome IDs as transcript IDs at the
+        # decoy boundary (salmon_desired_abs). Keep both invariants intact.
         shell:
             "mkdir -p {INDEX_DIR}/salmon && "
             "grep '^>' {input.fasta} | cut -d' ' -f1 | tr -d '>' > {output.decoys} && "
