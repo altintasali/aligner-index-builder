@@ -113,6 +113,7 @@ A run always produces the FASTA (normalized + decompressed) with `.fai` and
 | `--cores N` | snakemake `--cores` (default 1) |
 | `--slurm` | submit jobs to SLURM via the bundled profile `workflow/profiles/slurm` (see [HPC / SLURM](#hpc--slurm)) |
 | `--dry-run` | write the config and print the snakemake plan, run nothing |
+| `--unlock` | clear a stale snakemake lock left by an interrupted run (reuses `<outdir>/<name>.config.yaml`; only `-o`/`--genome-name` needed) |
 | `--keep-temp` | keep intermediates snakemake would delete |
 | `--snakemake-options ARGS` | extra snakemake arguments, passed through verbatim (quoted) |
 | `-v, --verbose` | print snakemake's shell commands |
@@ -131,14 +132,32 @@ python workflow/scripts/aligner-index-builder \
   -o results/GRCh38 --tools all --slurm
 ```
 
-The same profile works for direct snakemake runs (from the repo root):
+The same profile works for direct snakemake runs (from the repo root, passing
+`--directory <outdir>` so `.snakemake` stays in the output dir):
 
 ```bash
 snakemake --configfile results/GRCh38/GRCh38.config.yaml \
-  --workflow-profile workflow/profiles/slurm --cores 64
+  --workflow-profile workflow/profiles/slurm --directory results/GRCh38 \
+  --cores 64
 snakemake --configfile results/GRCh38/GRCh38.config.yaml \
-  --workflow-profile workflow/profiles/slurm -n   # dry-run, nothing submitted
+  --workflow-profile workflow/profiles/slurm --directory results/GRCh38 \
+  -n   # dry-run, nothing submitted
 ```
+
+Metadata and locking live in the output directory, not the repo:
+
+- Every run keeps its `.snakemake` (job metadata + the run lock) inside
+  `<outdir>/.snakemake`, so the repo clone stays pristine and different
+  output directories never contend for the same lock.
+- If a run is interrupted — an `scancel`, a compute-node timeout, or a
+  dropped ssh session on a `--slurm` run — snakemake leaves its lock behind
+  and the next run fails with "directory is locked". Clear it with the CLI's
+  `--unlock` (reuses the run config already written into the outdir, so only
+  `-o` is needed):
+
+  ```bash
+  aligner-index-builder --unlock -o results/GRCh38
+  ```
 
 How jobs are sized:
 
@@ -277,6 +296,12 @@ by hand (see `config/config.example.yaml`) and run:
 snakemake --configfile results/GRCh38/GRCh38.config.yaml --cores N
 ```
 
+CLI-generated configs carry a `repo_root` key, which anchors the
+`workflow/default-config/*.yaml` includes regardless of the working
+directory (the CLI runs snakemake with `--directory <outdir>`). For a
+hand-written config, either add `repo_root` too or run snakemake from the
+repo root.
+
 The config chain loaded by `workflow/Snakefile` is:
 `workflow/default-config/{versions,resources}.yaml` (built-in) &rarr; your run
 config &rarr; optional `resources:` override block inside the run config.
@@ -287,6 +312,7 @@ config &rarr; optional `resources:` override block inside the run config.
 | --- | --- | --- | --- |
 | `genome_name` | string | outdir basename | name for config/manifest |
 | `outdir` | string | — | output directory (required) |
+| `repo_root` | string | cwd | path to the `aligner-index-builder` repo (written by the CLI; anchors the `default-config` includes) |
 | `fasta` | string | — | FASTA path or URL (required) |
 | `gtf` | string/null | `null` | GTF path or URL; enables `star`/`hisat2`/`salmon` + the chromosome-consistency check |
 | `tools` | array or `all` | — | which index sets to build (required) |

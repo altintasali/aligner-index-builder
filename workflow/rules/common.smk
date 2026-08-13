@@ -6,6 +6,14 @@ from snakemake.exceptions import WorkflowError
 from snakemake.logging import logger
 from snakemake.utils import validate
 
+# Repository layout anchors. `repo_root` comes from the run config (written by
+# the CLI), so nothing depends on the directory snakemake is invoked from --
+# the CLI runs snakemake with `--directory <outdir>` so the `.snakemake`
+# metadata/lock dir lands in the output dir, never the repo. Direct
+# hand-written configs fall back to the cwd (run them from the repo root).
+REPO_ROOT = config.get("repo_root") or os.getcwd()
+WORKFLOW_DIR = os.path.join(REPO_ROOT, "workflow")
+
 # -----------------------------------------------------------------------------
 # Load & validate config
 # -----------------------------------------------------------------------------
@@ -135,8 +143,7 @@ def get_resources(rule_name):
 # own tools if you prefer not to use the pre-built env.
 # Absolute path: rules included from workflow/rules/ resolve relative paths
 # against that directory, not the run directory.
-# -----------------------------------------------------------------------------
-GENERATED_ENV_DIR = os.path.abspath("workflow/envs/generated")
+GENERATED_ENV_DIR = os.path.join(WORKFLOW_DIR, "envs", "generated")
 os.makedirs(GENERATED_ENV_DIR, exist_ok=True)
 
 
@@ -177,10 +184,10 @@ MULTIQC_ENV = _write_env("multiqc", [f"multiqc={V['multiqc']}"])
 # -----------------------------------------------------------------------------
 # Versions recorded in the MultiQC report / Software Versions section
 # -----------------------------------------------------------------------------
-# Pipeline version: read from the VERSION file at the repo root (the CLI runs
-# snakemake from there). Same value the CLI echoes with --version.
+# Pipeline version: read from the VERSION file at the repo root (same value
+# the CLI echoes with --version).
 try:
-    with open("VERSION") as _fh:
+    with open(os.path.join(REPO_ROOT, "VERSION")) as _fh:
         PIPELINE_VERSION = _fh.read().strip()
 except OSError:
     PIPELINE_VERSION = "unknown"
@@ -206,7 +213,7 @@ TOOL_INDEX_DIRS = {
 # -----------------------------------------------------------------------------
 # Absolute path so the multiqc shell command works no matter what directory
 # snakemake is invoked from.
-MULTIQC_CONFIG = os.path.abspath("workflow/default-config/multiqc_config.yaml")
+MULTIQC_CONFIG = os.path.join(WORKFLOW_DIR, "default-config", "multiqc_config.yaml")
 
 QC_VERSIONS = os.path.join(OUTDIR, "versions", f"{GENOME_NAME}_mqc_versions.yml")
 QC_RESOURCES_USED = os.path.join(OUTDIR, "pipeline_info", "resources_used_mqc.json")

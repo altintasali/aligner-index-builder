@@ -12,6 +12,12 @@ Local paths are resolved to absolute paths before snakemake runs so results
 never depend on the cwd; URLs (http(s)/ftp(s)/file://) are passed through and
 downloaded by the prepare rules.
 
+Snakemake is run with --directory <outdir>, so the `.snakemake` metadata and
+lock directory lives inside the output directory -- never the app clone. If a
+run is interrupted (e.g. a dropped ssh session on a --slurm run) the lock it
+leaves behind can be cleared with `--unlock` (reuses the run config already
+written to <outdir>/<name>.config.yaml).
+
 Errors are written to stderr and exit non-zero (1), never silently swallowed.
 """
 import argparse
@@ -106,8 +112,9 @@ def _build_parser():
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
-        "--fasta", required=True, metavar="PATH",
-        help="reference FASTA -- local path (plain/.gz/.bz2) or URL",
+        "--fasta", metavar="PATH",
+        help="reference FASTA -- local path (plain/.gz/.bz2) or URL "
+             "(not needed with --unlock)",
     )
     parser.add_argument(
         "--gtf", metavar="PATH",
@@ -157,6 +164,12 @@ def _build_parser():
              "any jobs",
     )
     parser.add_argument(
+        "--unlock", action="store_true",
+        help="clear a stale snakemake lock left by an interrupted run. Uses "
+             "the run config already written to <outdir>/<name>.config.yaml, "
+             "so only -o (and --genome-name) are needed",
+    )
+    parser.add_argument(
         "--keep-temp", action="store_true",
         help="keep intermediate files that snakemake would normally delete",
     )
@@ -196,6 +209,33 @@ def _parse_tools(args_tools):
 def main(argv=None):
     args = _build_parser().parse_args(argv)
 
+    outdir = os.path.abspath(args.outdir)
+    genome_name = args.genome_name or os.path.basename(outdir) or "genome"
+
+    if args.unlock:
+        config_path = os.path.join(outdir, f"{genome_name}.config.yaml")
+        if not os.path.exists(config_path):
+            _die(
+                f"no run config at {config_path!r} -- --unlock needs the "
+                f"<outdir>/<name>.config.yaml a previous run wrote "
+                f"(rerun with the same -o/--genome-name)."
+            )
+        cmd = [
+            "snakemake", "-s", SNAKEFILE,
+            "--configfile", config_path,
+            "--directory", outdir,
+            "--unlock",
+        ]
+        print("removing the snakemake lock on this output directory ...")
+        proc = subprocess.run(cmd, cwd=REPO_ROOT)
+        if proc.returncode != 0:
+            _die(f"snakemake --unlock failed (exit code {proc.returncode})")
+        print(f"unlocked {outdir}")
+        return 0
+
+    if not args.fasta:
+        _die("--fasta is required (not needed only with --unlock)")
+
     if args.cores < 1:
         _die("--cores must be >= 1")
 
@@ -223,13 +263,11 @@ def main(argv=None):
                 "none was given (pass --gtf)."
             )
 
-    outdir = os.path.abspath(args.outdir)
-    genome_name = args.genome_name or os.path.basename(outdir) or "genome"
     os.makedirs(outdir, exist_ok=True)
-
     config = {
         "genome_name": genome_name,
         "outdir": outdir,
+        "repo_root": REPO_ROOT,
         "fasta": fasta,
         "gtf": gtf,
         "tools": tools,
@@ -252,6 +290,10 @@ def main(argv=None):
     cmd = [
         "snakemake", "-s", SNAKEFILE,
         "--configfile", config_path,
+        # Working directory = the output dir, so `.snakemake` (metadata +
+        # lock) lives there, not in the repo clone, and each run locks only
+        # its own outdir.
+        "--directory", outdir,
         "--cores", str(args.cores),
     ]
     if args.dry_run:
@@ -272,10 +314,17 @@ def main(argv=None):
 
     proc = subprocess.run(cmd, cwd=REPO_ROOT)
     if proc.returncode != 0:
-        _die(
+        hint = (
             f"snakemake failed (exit code {proc.returncode}); see the logs "
             f"under {os.path.join(outdir, 'pipeline_info', 'logs')}"
         )
+        if not args.dry_run:
+            hint += (
+                ". If a previous run was interrupted (e.g. a dropped ssh "
+                f"session on a --slurm run), clear the stale lock first: "
+                f"aligner-index-builder --unlock -o {outdir}"
+            )
+        _die(hint)
     if args.dry_run:
         print(f"dry-run OK: {len(tools)} tool index set(s) requested")
         return 0

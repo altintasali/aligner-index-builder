@@ -13,11 +13,16 @@
 #
 #   snakemake -s workflow/Snakefile --configfile path/to/config.yaml --cores N
 #
-# Paths are resolved against the directory you run snakemake from. `fasta` and
-# `gtf` may be local paths (plain or gzipped) or http(s)/ftp(s)/file:// URLs.
+# Paths are resolved against the directory you run snakemake from; the CLI
+# writes them as absolute paths. `repo_root` (also written by the CLI) anchors
+# the built-in workflow/default-config/{versions,resources}.yaml includes; if
+# you hand-write a config, either set it or run snakemake from the repo root.
+# `fasta` and `gtf` may be local paths (plain or gzipped) or
+# http(s)/ftp(s)/file:// URLs.
 # =============================================================================
 genome_name: GRCh38          # name used for the generated config + manifest
 outdir: results/GRCh38       # where all indices land (created if missing)
+repo_root: /path/to/aligner-index-builder
 fasta: /path/to/genome.fa    # or https://.../genome.fa.gz
 gtf: /path/to/genes.gtf      # optional but required for star/hisat2/salmon
 tools:                       # which indices to build ("all" = every tool)
