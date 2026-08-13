@@ -18,9 +18,12 @@ resources:
   hisat2_index: {threads: 8, mem_mb: 204800, runtime: 240}
   bowtie2_index: {threads: 8, mem_mb: 16000, runtime: 240}
   bwa_index: {threads: 8, mem_mb: 16000, runtime: 240}
-  bwa_mem2_index: {threads: 8, mem_mb: 32768, runtime: 240}
+  # bwa-mem2 index peak RAM scales with genome size and threads; 32 GB is too
+  # little for GRCm38/GRCh38 at 8 threads (bwa-mem2 exits 1 on allocation
+  # failure instead of being OOM-killed). bwameth2 runs the same build.
+  bwa_mem2_index: {threads: 8, mem_mb: 65536, runtime: 240}
   bwameth_index: {threads: 8, mem_mb: 16000, runtime: 240}
-  bwameth2_index: {threads: 8, mem_mb: 32768, runtime: 240}
+  bwameth2_index: {threads: 8, mem_mb: 65536, runtime: 240}
   bismark_index: {threads: 8, mem_mb: 16000, runtime: 240}
   transcriptome_fasta: {threads: 1, mem_mb: 4000, runtime: 30}
   salmon_index: {threads: 8, mem_mb: 16000, runtime: 120}
