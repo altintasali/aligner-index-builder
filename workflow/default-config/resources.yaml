@@ -12,11 +12,14 @@ resources:
   prepare_gtf: {threads: 1, mem_mb: 2000, runtime: 30}
   fasta_fai: {threads: 1, mem_mb: 2000, runtime: 30}
   fasta_2bit: {threads: 1, mem_mb: 8000, runtime: 60}
-  star: {threads: 8, mem_mb: 48000, runtime: 480}
+  # STAR genomeGenerate peak RAM grows ~linearly with genome size (roughly
+  # human-sized needs ~31 GB); 48 GB suits ~3 Gbp references -- raise mem_mb
+  # for very large genomes (see the bwa_mem2 note for the -9 OOM signature).
+  star: {threads: 16, mem_mb: 48000, runtime: 480}
   hisat2_splicesites: {threads: 1, mem_mb: 2000, runtime: 30}
   hisat2_exons: {threads: 1, mem_mb: 2000, runtime: 30}
-  hisat2: {threads: 8, mem_mb: 204800, runtime: 240}
-  bowtie2: {threads: 8, mem_mb: 16000, runtime: 240}
+  hisat2: {threads: 16, mem_mb: 204800, runtime: 240}
+  bowtie2: {threads: 16, mem_mb: 16000, runtime: 240}
   bwa: {threads: 8, mem_mb: 16000, runtime: 240}
   # bwa-mem2 index peak RAM scales with genome size (roughly human-sized
   # needs ~50-90 GB) and threads. A ~11 Gbp reference exceeds 64 GB: the
@@ -29,7 +32,11 @@ resources:
   bwameth2: {threads: 8, mem_mb: 204800, runtime: 240}
   bismark: {threads: 8, mem_mb: 16000, runtime: 240}
   transcriptome_fasta: {threads: 1, mem_mb: 4000, runtime: 30}
-  salmon: {threads: 8, mem_mb: 16000, runtime: 120}
+  # Salmon decoy-indexes the full genome (decoys.txt + seq.fa concatenation),
+  # so peak RAM scales with genome size -- 16 GB is far too small for a ~11 Gbp
+  # reference and would OOM with the same "-9" signature as bwa-mem2. Runtime
+  # is generous because TwoPaCo graph construction is mostly single-threaded.
+  salmon: {threads: 16, mem_mb: 204800, runtime: 480}
   # MultiQC report + its inputs (pipeline_info/ versions/ under outdir).
   software_versions: {threads: 1, mem_mb: 2000, runtime: 30}
   resources_used: {threads: 1, mem_mb: 2000, runtime: 60}
