@@ -18,8 +18,11 @@ configfile: "workflow/default-config/resources.yaml"
 # (see config/config.example.yaml for the documented keys).
 include: "rules/common.smk"
 include: "rules/index.smk"
+include: "rules/qc.smk"
 
 
 rule all:
     input:
         all_index_targets(),
+        QC_MULTIQC_HTML,
+        QC_MULTIQC_DATA,

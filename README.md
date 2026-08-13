@@ -9,6 +9,10 @@ layout: STAR, HISAT2, bowtie2, bwa, bwa-mem2, bwa-meth
 side products and a `gffread` transcriptome for decoy-aware salmon indexes.
 Each index set lands in a lowercase index dir named after its tool
 (`star_index/`, `bwa-mem2_index/`, ... -- see [What gets built](#what-gets-built)).
+Every run also produces a [MultiQC](https://multiqc.info/) report
+(`qc/multiqc_report.html`) summarising the reference and annotation, the
+per-index disk footprints, the resolved run configuration, per-rule resource
+usage, and the pinned tool versions (see [MultiQC report](#multiqc-report)).
 
 It is driven by a small CLI (`workflow/scripts/aligner-index-builder`) that
 writes a run config and hands off to snakemake; tool versions are pinned
@@ -28,6 +32,7 @@ Companion of [TEtranscripts-pipe](https://github.com/altintasali/TEtranscripts-p
 - [HPC / SLURM](#hpc--slurm)
 - [What gets built](#what-gets-built)
 - [Output layout](#output-layout)
+- [MultiQC report](#multiqc-report)
 - [Direct snakemake use](#direct-snakemake-use)
 - [Config reference](#config-reference)
 - [Architecture](#architecture)
@@ -193,6 +198,7 @@ nothing). `sbatch` must be available wherever snakemake runs.
 | salmon | `salmon_index/` | `seq.bin` | needs GTF; decoy-aware (transcripts via `gffread` + genome as decoys) |
 | — | `genome_fasta/` | `genome.fa`, `genome.fa.fai`, `genome.2bit` | always; `samtools faidx` + `faToTwoBit` |
 | — | `annotation/` | `genes.gtf`, `transcripts.fa` | when a GTF is given |
+| — | `qc/` | `multiqc_report.html`, `multiqc_report_data/` | always; MultiQC report (see [MultiQC report](#multiqc-report)) |
 
 Tool version pins live in `workflow/default-config/versions.yaml` (also
 mirrored into `workflow/environment.yaml`). Note: STAR 2.7.11b is the final
@@ -221,10 +227,46 @@ results/GRCh38/
 ├── bwa-meth2_index/
 ├── bismark_index/Bisulfite_Genome/
 ├── salmon_index/
+├── versions/
+│   └── GRCh38_mqc_versions.yml     # tool versions for the report
+├── qc/
+│   ├── multiqc_report.html         # the MultiQC report
+│   └── multiqc_report_data/        # machine-readable report data
 └── pipeline_info/
-    ├── logs/                   # per-rule logs + config_resolution.log
-    └── benchmarks/             # per-rule timing/peak-memory tables
+    ├── logs/                       # per-rule logs + config_resolution.log
+    ├── benchmarks/                 # per-rule timing/peak-memory tables
+    ├── chrom_consistency.json      # FASTA-vs-GTF contig check result
+    ├── resources_used_mqc.json     # report: "Resources used" table
+    ├── index_sizes_mqc.json        # report: "Index sizes" table
+    ├── annotation_summary_mqc.json # report: "Annotation summary" table (with GTF)
+    ├── config_used_mqc.json        # report: "Configuration used" table
+    └── benchmark_summary_mqc.json  # report: "Resource usage" table
 ```
+
+## MultiQC report
+
+The pipeline has no per-sample data (no reads, no alignments), so the report in
+`qc/multiqc_report.html` is custom content aggregated by MultiQC from the files
+under `versions/` and `pipeline_info/`:
+
+- **Resources used** -- reference FASTA path + SHA-256, contig count / total
+  length / N50 / GC%, GTF path + SHA-256, the FASTA-vs-GTF contig-consistency
+  result, and the index sets built (`resources_used_mqc.json`).
+- **Index sizes** -- disk footprint of each built index directory
+  (`index_sizes_mqc.json`).
+- **Annotation summary** -- gene/transcript counts from the GTF (+ the gffread
+  transcriptome when salmon is built). Omitted when no GTF is given
+  (`annotation_summary_mqc.json`).
+- **Configuration used** -- the resolved run config (`config_used_mqc.json`).
+- **Resource usage** -- per-rule job count, wall time, and CPU/RAM efficiency
+  (allocated vs actually used, from the Snakemake benchmark tables)
+  (`benchmark_summary_mqc.json`). Handy for sizing your cluster before a full run.
+- **Software Versions** -- the pinned tool versions from
+  `versions.yaml` (`versions/<genome>_mqc_versions.yml`, auto-discovered).
+
+The report title, comment and section order live in
+`workflow/default-config/multiqc_config.yaml`. The report is cheap (seconds),
+so it is always produced.
 
 ## Direct snakemake use
 
@@ -259,11 +301,15 @@ config &rarr; optional `resources:` override block inside the run config.
 aligner-index-builder (CLI)
    └─ writes <outdir>/<name>.config.yaml
        └─ snakemake -s workflow/Snakefile --configfile <config>
-           ├─ default-config/{versions,resources}.yaml  (built-in defaults)
+           ├─ default-config/{versions,resources,multiqc_config}.yaml
+           │                      (built-in defaults)
            ├─ rules/common.smk  (config validation, paths, per-tool envs)
-           └─ rules/index.smk   (one rule per index)
-               ├─ fetch_reference.py (download/copy + gzip/bz2 sniff-decompress)
-               └─ check_chroms.py   (FASTA-vs-GTF contig consistency gate)
+           ├─ rules/index.smk   (one rule per index)
+           │   ├─ fetch_reference.py (download/copy + gzip/bz2 sniff-decompress)
+           │   └─ check_chroms.py   (FASTA-vs-GTF contig consistency gate)
+           └─ rules/qc.smk      (MultiQC report; see "MultiQC report")
+               ├─ resources_used.py    (reference/annotation/index-size tables)
+               └─ benchmark_summary.py (per-rule resource-usage table)
 ```
 
 ```mermaid
@@ -286,6 +332,16 @@ flowchart LR
     prepgtf --> hisat2
     prepgtf --> gffread[gffread transcripts]
     gffread --> salmon
+    check --> qc[multiqc]
+    star --> qc
+    hisat2 --> qc
+    bowtie2 --> qc
+    bwa --> qc
+    bwa2 --> qc
+    bwameth --> qc
+    bwameth2 --> qc
+    bismark --> qc
+    salmon --> qc
 ```
 
 Per-tool conda env files are generated into `workflow/envs/generated/` at

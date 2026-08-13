@@ -29,3 +29,4 @@ versions:
   bwameth: ""               # conda package name is `bwameth` (unpinned; provides bwameth.py)
   gffread: ">=0.12.6"
   ucsc_fatotwobit: "482"
+  multiqc: "1.33"

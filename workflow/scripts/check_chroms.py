@@ -4,8 +4,10 @@ Runs as the check_chrom_consistency rule (see rules/index.smk): STAR, HISAT2
 and salmon build their indices against the FASTA while using the GTF for
 splice junctions/transcripts, so a mismatch in contig naming would silently
 produce a broken index set. Exits non-zero (and the pipeline fails) unless at
-least one contig name is shared.
+least one contig name is shared. Also writes the per-side/shared contig counts
+to {output.stats} (a JSON the report's resources_used rule reads).
 """
+import json
 import sys
 
 
@@ -39,6 +41,17 @@ def main():
     fasta = _fasta_contigs(fasta_path)
     gtf = _gtf_contigs(gtf_path)
     shared = fasta & gtf
+
+    with open(snakemake.output.stats, "w") as fh:  # noqa: F821
+        json.dump(
+            {
+                "fasta_contigs": len(fasta),
+                "gtf_contigs": len(gtf),
+                "shared_contigs": len(shared),
+            },
+            fh,
+            indent=2,
+        )
 
     if not shared:
         print(

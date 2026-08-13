@@ -37,5 +37,8 @@ dependencies:
   - bwameth
   - gffread >=0.12.6
   - ucsc-fatotwobit=482
+  # MultiQC report: aggregates the resource/version/benchmark custom-content
+  # tables into one HTML report (workflow/default-config/multiqc_config.yaml).
+  - multiqc=1.33
   # Floor only: keeps the solver from backtracking to an ancient build.
   - python >=3.9

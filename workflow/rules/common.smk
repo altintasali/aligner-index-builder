@@ -1,5 +1,6 @@
 import os
 
+import snakemake
 import yaml
 from snakemake.exceptions import WorkflowError
 from snakemake.logging import logger
@@ -88,6 +89,7 @@ GENOME_2BIT = os.path.join(OUTDIR, "genome_fasta", "genome.2bit")
 GENES_GTF = os.path.join(OUTDIR, "annotation", "genes.gtf") if GTF else None
 TRANSCRIPTS_FA = os.path.join(OUTDIR, "annotation", "transcripts.fa")
 CHROM_CHECK_OK = os.path.join(OUTDIR, "pipeline_info", "chrom_consistency.ok")
+CHROM_STATS = os.path.join(OUTDIR, "pipeline_info", "chrom_consistency.json")
 
 TOOL_TARGETS = {
     "star": os.path.join(OUTDIR, "star_index"),
@@ -170,6 +172,110 @@ GFFREAD_ENV = _write_env("gffread", [f"gffread={V['gffread']}"])
 SALMON_ENV = _write_env("salmon", [f"salmon={V['salmon']}"])
 UCSC_ENV = _write_env("ucsc", [f"ucsc-fatotwobit={V['ucsc_fatotwobit']}"])
 PYTHON_ENV = _write_env("python", ["python>=3.9"])
+MULTIQC_ENV = _write_env("multiqc", [f"multiqc={V['multiqc']}"])
+
+# -----------------------------------------------------------------------------
+# Versions recorded in the MultiQC report / Software Versions section
+# -----------------------------------------------------------------------------
+# Pipeline version: read from the VERSION file at the repo root (the CLI runs
+# snakemake from there). Same value the CLI echoes with --version.
+try:
+    with open("VERSION") as _fh:
+        PIPELINE_VERSION = _fh.read().strip()
+except OSError:
+    PIPELINE_VERSION = "unknown"
+
+SNAKEMAKE_VERSION = snakemake.__version__
+
+# Index directories, keyed by tool name -- used by the resources_used rule to
+# report per-index disk usage. Mirrors the CLI's TOOL_DIRS mapping.
+TOOL_INDEX_DIRS = {
+    "star": os.path.join(OUTDIR, "star_index"),
+    "hisat2": os.path.join(OUTDIR, "hisat2_index"),
+    "bowtie2": os.path.join(OUTDIR, "bowtie2_index"),
+    "bwa": os.path.join(OUTDIR, "bwa_index"),
+    "bwa-mem2": os.path.join(OUTDIR, "bwa-mem2_index"),
+    "bwameth": os.path.join(OUTDIR, "bwa-meth_index"),
+    "bwameth2": os.path.join(OUTDIR, "bwa-meth2_index"),
+    "salmon": os.path.join(OUTDIR, "salmon_index"),
+    "bismark": os.path.join(OUTDIR, "bismark_index"),
+}
+
+# -----------------------------------------------------------------------------
+# MultiQC report outputs (qc.smk)
+# -----------------------------------------------------------------------------
+# Absolute path so the multiqc shell command works no matter what directory
+# snakemake is invoked from.
+MULTIQC_CONFIG = os.path.abspath("workflow/default-config/multiqc_config.yaml")
+
+QC_VERSIONS = os.path.join(OUTDIR, "versions", f"{GENOME_NAME}_mqc_versions.yml")
+QC_RESOURCES_USED = os.path.join(OUTDIR, "pipeline_info", "resources_used_mqc.json")
+QC_CONFIG_USED = os.path.join(OUTDIR, "pipeline_info", "config_used_mqc.json")
+QC_INDEX_SIZES = os.path.join(OUTDIR, "pipeline_info", "index_sizes_mqc.json")
+QC_ANNOTATION_SUMMARY = os.path.join(
+    OUTDIR, "pipeline_info", "annotation_summary_mqc.json"
+)
+QC_BENCHMARK_SUMMARY = os.path.join(
+    OUTDIR, "pipeline_info", "benchmark_summary_mqc.json"
+)
+QC_MULTIQC_HTML = os.path.join(OUTDIR, "qc", "multiqc_report.html")
+QC_MULTIQC_DATA = os.path.join(OUTDIR, "qc", "multiqc_report_data")
+
+
+def all_benchmark_files():
+    """Every benchmark file this run will produce, for the benchmark_summary
+    rule (qc.smk) to aggregate into the MultiQC resource-usage section. Built
+    deterministically from TOOLS/GTF (rules only run when their tool is
+    requested); the report rules' own benchmarks (software_versions,
+    resources_used, config_used, benchmark_summary, multiqc) are excluded --
+    they are negligible and would otherwise create a dependency cycle."""
+    _qc_rules = {
+        "software_versions", "resources_used", "config_used",
+        "benchmark_summary", "multiqc",
+    }
+    _dir = os.path.join(OUTDIR, "pipeline_info", "benchmarks")
+    _to_rule = {
+        "star": "star_index",
+        "bowtie2": "bowtie2_index",
+        "bwa": "bwa_index",
+        "bwa-mem2": "bwa_mem2_index",
+        "bwameth": "bwameth_index",
+        "bwameth2": "bwameth2_index",
+        "bismark": "bismark_index",
+    }
+    files = [
+        "prepare_genome", "fasta_fai", "fasta_2bit",
+    ]
+    if GTF:
+        files += ["prepare_gtf", "chrom_consistency"]
+    for tool in TOOLS:
+        if tool == "hisat2":
+            files += ["hisat2_splicesites", "hisat2_exons", "hisat2_index"]
+        elif tool == "salmon":
+            files += ["transcriptome_fasta", "salmon_index"]
+        else:
+            files.append(_to_rule[tool])
+    return sorted(
+        os.path.join(_dir, stem + ".txt")
+        for stem in files
+        if stem not in _qc_rules
+    )
+
+
+def allocated_resources_by_rule():
+    """{rule: {"threads", "mem_mb"}} for every rule with a benchmark file,
+    read from resources.yaml -- the per-job allocation against which the
+    benchmark_summary script computes CPU/RAM efficiency. Iterated in
+    Snakemake's own rule order so the resource-usage table lists rules in
+    workflow order, not alphabetically."""
+    _benchmark_rules = {
+        os.path.basename(path)[:-4] for path in all_benchmark_files()
+    }
+    _out = {}
+    for _r in workflow.rules:
+        if _r.name in _benchmark_rules:
+            _out[_r.name] = get_resources(_r.name)
+    return _out
 
 # -----------------------------------------------------------------------------
 # Lightweight record of how this run's config resolved, for the user to check

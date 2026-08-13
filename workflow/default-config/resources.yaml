@@ -24,3 +24,9 @@ resources:
   bismark_index: {threads: 8, mem_mb: 16000, runtime: 240}
   transcriptome_fasta: {threads: 1, mem_mb: 4000, runtime: 30}
   salmon_index: {threads: 8, mem_mb: 16000, runtime: 120}
+  # MultiQC report + its inputs (pipeline_info/ versions/ under outdir).
+  software_versions: {threads: 1, mem_mb: 2000, runtime: 30}
+  resources_used: {threads: 1, mem_mb: 2000, runtime: 60}
+  config_used: {threads: 1, mem_mb: 2000, runtime: 30}
+  benchmark_summary: {threads: 1, mem_mb: 2000, runtime: 30}
+  multiqc: {threads: 1, mem_mb: 4000, runtime: 60}

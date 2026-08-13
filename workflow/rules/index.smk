@@ -352,12 +352,14 @@ if GENES_GTF:
     rule check_chrom_consistency:
         # Fails fast with a clear message if the FASTA and GTF don't share at
         # least one chromosome/contig name -- otherwise STAR/HISAT2/salmon
-        # would build indices against a mismatched reference.
+        # would build indices against a mismatched reference. Also writes the
+        # shared-contig counts consumed by the report's resources_used rule.
         input:
             fasta=GENOME_FASTA,
             gtf=GENES_GTF,
         output:
-            touch(CHROM_CHECK_OK),
+            ok=touch(CHROM_CHECK_OK),
+            stats=CHROM_STATS,
         threads: get_resources("check_chrom_consistency")["threads"]
         resources:
             mem_mb=get_resources("check_chrom_consistency")["mem_mb"],
