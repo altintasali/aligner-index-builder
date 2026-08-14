@@ -92,9 +92,9 @@ compression is sniffed, not assumed) or `http(s)://`, `ftp://`, `file://`
 URLs. The CLI:
 
 1. resolves local paths to absolute paths,
-2. writes the run config to `<outdir>/<genome_name>.config.yaml`,
+2. writes the run config to `<outdir>/config/<genome_name>.config.yaml`,
 3. runs snakemake on the bundled `workflow/Snakefile`,
-4. on success writes a manifest to `<outdir>/<genome_name>.yaml`.
+4. on success writes a manifest to `<outdir>/config/<genome_name>.yaml`.
 
 A run always produces the FASTA (normalized + decompressed) with `.fai` and
 `.2bit`, so you can hand those on to downstream pipelines.
@@ -114,7 +114,7 @@ A run always produces the FASTA (normalized + decompressed) with `.fai` and
 | `--cores N` | snakemake `--cores` (default 1) |
 | `--slurm` | submit jobs to SLURM via the bundled profile `workflow/profiles/slurm` (see [HPC / SLURM](#hpc--slurm)) |
 | `--dry-run` | write the config and print the snakemake plan, run nothing |
-| `--unlock` | clear a stale snakemake lock left by an interrupted run (reuses `<outdir>/<name>.config.yaml`; only `-o`/`--genome-name` needed) |
+| `--unlock` | clear a stale snakemake lock left by an interrupted run (reuses `<outdir>/config/<name>.config.yaml`; only `-o`/`--genome-name` needed) |
 | `--keep-temp` | keep intermediates snakemake would delete |
 | `--snakemake-options ARGS` | extra snakemake arguments, passed through verbatim (quoted) |
 | `-v, --verbose` | print snakemake's shell commands |
@@ -137,10 +137,10 @@ The same profile works for direct snakemake runs (from the repo root, passing
 `--directory <outdir>` so `.snakemake` stays in the output dir):
 
 ```bash
-snakemake --configfile results/GRCh38/GRCh38.config.yaml \
+snakemake --configfile results/GRCh38/config/GRCh38.config.yaml \
   --workflow-profile workflow/profiles/slurm --directory results/GRCh38 \
   --cores 64
-snakemake --configfile results/GRCh38/GRCh38.config.yaml \
+snakemake --configfile results/GRCh38/config/GRCh38.config.yaml \
   --workflow-profile workflow/profiles/slurm --directory results/GRCh38 \
   -n   # dry-run, nothing submitted
 ```
@@ -237,8 +237,9 @@ stay in the same environment.
 
 ```
 results/GRCh38/
-├── GRCh38.config.yaml          # run config (written by the CLI)
-├── GRCh38.yaml                 # success manifest (written by the CLI)
+├── config/
+│   ├── GRCh38.config.yaml       # run config (written by the CLI)
+│   └── GRCh38.yaml              # success manifest (written by the CLI)
 ├── genome_fasta/
 │   ├── genome.fa               # normalized, uncompressed reference
 │   ├── genome.fa.fai
@@ -303,7 +304,7 @@ For debugging or scripting, generate the config with `--dry-run`, or write one
 by hand (see `config/config.example.yaml`) and run:
 
 ```bash
-snakemake --configfile results/GRCh38/GRCh38.config.yaml --cores N
+snakemake --configfile results/GRCh38/config/GRCh38.config.yaml --cores N
 ```
 
 CLI-generated configs carry a `repo_root` key, which anchors the
@@ -335,7 +336,7 @@ config &rarr; optional `resources:` override block inside the run config.
 
 ```
 aligner-index-builder (CLI)
-   └─ writes <outdir>/<name>.config.yaml
+   └─ writes <outdir>/config/<name>.config.yaml
        └─ snakemake -s workflow/Snakefile --configfile <config>
            ├─ default-config/{versions,resources,multiqc_config}.yaml
            │                      (built-in defaults)

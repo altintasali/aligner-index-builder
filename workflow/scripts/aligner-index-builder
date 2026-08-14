@@ -6,8 +6,9 @@ salmon index sets for a reference genome (FASTA + optional GTF). All index
 dirs live under <outdir>/index/<tool>/ (index/star/, index/bwa-mem2/,
 index/bwameth/, ...).
 
-It writes a run config to <outdir>/<name>.config.yaml, runs snakemake on the
-bundled Snakefile, and on success writes a manifest <outdir>/<name>.yaml.
+It writes a run config to <outdir>/config/<name>.config.yaml, runs snakemake
+on the bundled Snakefile, and on success writes a manifest
+<outdir>/config/<name>.yaml.
 Local paths are resolved to absolute paths before snakemake runs so results
 never depend on the cwd; URLs (http(s)/ftp(s)/file://) are passed through and
 downloaded by the prepare rules.
@@ -16,7 +17,7 @@ Snakemake is run with --directory <outdir>, so the `.snakemake` metadata and
 lock directory lives inside the output directory -- never the app clone. If a
 run is interrupted (e.g. a dropped ssh session on a --slurm run) the lock it
 leaves behind can be cleared with `--unlock` (reuses the run config already
-written to <outdir>/<name>.config.yaml).
+written to <outdir>/config/<name>.config.yaml).
 
 Errors are written to stderr and exit non-zero (1), never silently swallowed.
 """
@@ -50,6 +51,8 @@ TOOL_DIRS = {
     "salmon": "salmon",
     "bismark": "bismark",
 }
+
+CONFIG_DIR = "config"
 
 
 class _Parser(argparse.ArgumentParser):
@@ -166,8 +169,9 @@ def _build_parser():
     parser.add_argument(
         "--unlock", action="store_true",
         help="clear a stale snakemake lock left by an interrupted run. Uses "
-             "the run config already written to <outdir>/<name>.config.yaml, "
-             "so only -o (and --genome-name) are needed",
+             "the run config already written to "
+             "<outdir>/config/<name>.config.yaml, so only -o (and "
+             "--genome-name) are needed",
     )
     parser.add_argument(
         "--keep-temp", action="store_true",
@@ -213,11 +217,11 @@ def main(argv=None):
     genome_name = args.genome_name or os.path.basename(outdir) or "genome"
 
     if args.unlock:
-        config_path = os.path.join(outdir, f"{genome_name}.config.yaml")
+        config_path = os.path.join(outdir, CONFIG_DIR, f"{genome_name}.config.yaml")
         if not os.path.exists(config_path):
             _die(
                 f"no run config at {config_path!r} -- --unlock needs the "
-                f"<outdir>/<name>.config.yaml a previous run wrote "
+                f"<outdir>/config/<name>.config.yaml a previous run wrote "
                 f"(rerun with the same -o/--genome-name)."
             )
         cmd = [
@@ -264,6 +268,8 @@ def main(argv=None):
             )
 
     os.makedirs(outdir, exist_ok=True)
+    config_dir = os.path.join(outdir, CONFIG_DIR)
+    os.makedirs(config_dir, exist_ok=True)
     config = {
         "genome_name": genome_name,
         "outdir": outdir,
@@ -283,7 +289,7 @@ def main(argv=None):
             _die("--salmon-kmer must be >= 1")
         config["salmon_kmer"] = args.salmon_kmer
 
-    config_path = os.path.join(outdir, f"{genome_name}.config.yaml")
+    config_path = os.path.join(config_dir, f"{genome_name}.config.yaml")
     _write_yaml(config_path, config)
     print(f"wrote run config: {config_path}")
 
@@ -329,7 +335,7 @@ def main(argv=None):
         print(f"dry-run OK: {len(tools)} tool index set(s) requested")
         return 0
 
-    manifest_path = os.path.join(outdir, f"{genome_name}.yaml")
+    manifest_path = os.path.join(config_dir, f"{genome_name}.yaml")
     _write_yaml(manifest_path, {
         "genome_name": genome_name,
         "outdir": outdir,

@@ -30,9 +30,9 @@ jobs:
             --cores 2
 
           # The CLI wrote its run config and (on success) its manifest.
-          test -f results/test/test.config.yaml
-          test -f results/test/test.yaml
-          grep -q "bismark" results/test/test.yaml
+          test -f results/test/config/test.config.yaml
+          test -f results/test/config/test.yaml
+          grep -q "bismark" results/test/config/test.yaml
 
           # Side products: normalized fasta + .fai + .2bit, annotation files.
           test -s results/test/genome_fasta/genome.fa
@@ -169,7 +169,7 @@ jobs:
                --fasta "$fixture/genome.fa" -o "$T/out6b" --tools bowtie2 \
                --dry-run >"$T/dry.log" 2>&1; then
             echo "ERROR: CLI dry-run failed (see $T/dry.log)"; FAIL=1
-          elif [[ ! -f "$T/out6b/out6b.config.yaml" ]]; then
+          elif [[ ! -f "$T/out6b/config/out6b.config.yaml" ]]; then
             echo "ERROR: CLI dry-run did not write its config file"; FAIL=1
           fi
 
