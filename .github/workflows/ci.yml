@@ -138,9 +138,11 @@ jobs:
             echo "ERROR: no-GTF run with a GTF-free tool must dry-run"; FAIL=1
           elif ! grep -q "skipping GTF-dependent tools" "$T/nogtf.log"; then
             echo "ERROR: no-GTF warning not shown"; FAIL=1
-          elif grep -q "localrule star:" "$T/nogtf.log"; then
+          # The guard runs `snakemake -n`, and a dry-run prints "rule <name>:"
+          # (execution prints "localrule <name>:"), so match the dry-run form.
+          elif grep -q "rule star:" "$T/nogtf.log"; then
             echo "ERROR: STAR rule was planned without a GTF"; FAIL=1
-          elif ! grep -q "localrule bowtie2:" "$T/nogtf.log"; then
+          elif ! grep -q "rule bowtie2:" "$T/nogtf.log"; then
             echo "ERROR: bowtie2 rule missing from the no-GTF plan"; FAIL=1
           fi
 
@@ -192,8 +194,9 @@ jobs:
             echo "ERROR: no-GTF MultiQC run failed (see $T/nogtf_mqc.log)"; FAIL=1
           elif [[ ! -s "$T/out8/qc/multiqc_report.html" ]]; then
             echo "ERROR: multiqc_report.html not produced without a GTF"; FAIL=1
-          elif grep -q "annotation_summary" \
-                "$T/out8/qc/multiqc_report_data/multiqc_custom_content.json"; then
+          elif [[ ! -d "$T/out8/qc/multiqc_report_data" ]]; then
+            echo "ERROR: multiqc_report_data not produced without a GTF"; FAIL=1
+          elif [[ -f "$T/out8/qc/multiqc_report_data/multiqc_annotation_summary_table.txt" ]]; then
             echo "ERROR: annotation_summary section present in a no-GTF run"; FAIL=1
           fi
 
