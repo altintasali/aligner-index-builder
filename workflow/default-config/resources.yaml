@@ -5,6 +5,14 @@
 # --snakemake-options '--default-resources threads=...'. Values are
 # conservative middle-grounds for real (e.g. human/mouse) genomes; the tiny CI
 # fixture runs comfortably under the default cores anyway.
+#
+# Tuned against the GRCm38 resource-usage table (MultiQC "Resource usage"):
+# every index build measured <2 cores, so the 9 index rules request 2 threads
+# (only star/hisat2/bowtie2/salmon pass threads to the tool; the rest are
+# serial and 2 is just the SLURM allocation). RAM aims for ~80% efficiency
+# (allocated ~= measured peak / 0.8) -- only ~25% headroom over the measured
+# peak, so raise mem_mb via a `resources:` block if a larger genome peaks
+# higher (an undersized allocation is OOM-killed; see the bwa_mem2 -9 note).
 # =============================================================================
 resources:
   check_chrom_consistency: {threads: 1, mem_mb: 2000, runtime: 30}
@@ -12,31 +20,35 @@ resources:
   prepare_gtf: {threads: 1, mem_mb: 2000, runtime: 30}
   fasta_fai: {threads: 1, mem_mb: 2000, runtime: 30}
   fasta_2bit: {threads: 1, mem_mb: 8000, runtime: 60}
-  # STAR genomeGenerate peak RAM grows ~linearly with genome size (roughly
-  # human-sized needs ~31 GB); 48 GB suits ~3 Gbp references -- raise mem_mb
-  # for very large genomes (see the bwa_mem2 note for the -9 OOM signature).
-  star: {threads: 16, mem_mb: 48000, runtime: 480}
+  # STAR genomeGenerate peak RAM grows ~linearly with genome size (measured
+  # ~30 GB on GRCm38, ~31 GB for human-sized); 40 GB keeps ~80% efficiency.
+  star: {threads: 2, mem_mb: 40960, runtime: 480}
   hisat2_splicesites: {threads: 1, mem_mb: 2000, runtime: 30}
   hisat2_exons: {threads: 1, mem_mb: 2000, runtime: 30}
-  hisat2: {threads: 16, mem_mb: 204800, runtime: 240}
-  bowtie2: {threads: 16, mem_mb: 16000, runtime: 240}
-  bwa: {threads: 8, mem_mb: 16000, runtime: 240}
-  # bwa-mem2 index peak RAM scales with genome size (roughly human-sized
-  # needs ~50-90 GB) and threads. A ~11 Gbp reference exceeds 64 GB: the
-  # build is OOM-killed mid-FMI-construction -- bwameth.py surfaces that as
-  # "return code was:-9" (SIGKILL) wrapped into exit 1, which SLURM logs as a
-  # plain non-zero exit. 200 GiB matches the hisat2 build that succeeds on a
-  # big-mem node; drop `threads` (and/or mem_mb) for smaller references.
-  bwa_mem2: {threads: 8, mem_mb: 204800, runtime: 240}
-  bwameth: {threads: 8, mem_mb: 16000, runtime: 240}
-  bwameth2: {threads: 8, mem_mb: 204800, runtime: 240}
-  bismark: {threads: 8, mem_mb: 16000, runtime: 240}
+  # Splice-aware build (--ss/--exon) peak RAM scales with genome size --
+  # measured ~146 GB on GRCm38, so 190 GB (~77% efficiency). Without the
+  # splice-site inputs the plain build needs only ~8-16 GB.
+  hisat2: {threads: 2, mem_mb: 194560, runtime: 240}
+  bowtie2: {threads: 2, mem_mb: 6144, runtime: 240}
+  bwa: {threads: 2, mem_mb: 5120, runtime: 240}
+  # bwa-mem2 index peak RAM scales with genome size (measured ~61 GB on
+  # GRCm38, ~50-90 GB for human-sized) and threads. A ~11 Gbp reference
+  # exceeds 64 GB: the build is OOM-killed mid-FMI-construction -- bwameth.py
+  # surfaces that as "return code was:-9" (SIGKILL) wrapped into exit 1, which
+  # SLURM logs as a plain non-zero exit. 80 GB suits ~3 Gbp references at
+  # ~80% efficiency; raise mem_mb for larger references.
+  bwa_mem2: {threads: 2, mem_mb: 81920, runtime: 240}
+  bwameth: {threads: 2, mem_mb: 10240, runtime: 240}
+  bwameth2: {threads: 2, mem_mb: 163840, runtime: 240}
+  bismark: {threads: 2, mem_mb: 12288, runtime: 240}
   transcriptome_fasta: {threads: 1, mem_mb: 4000, runtime: 30}
   # Salmon decoy-indexes the full genome (decoys.txt + seq.fa concatenation),
-  # so peak RAM scales with genome size -- 16 GB is far too small for a ~11 Gbp
-  # reference and would OOM with the same "-9" signature as bwa-mem2. Runtime
-  # is generous because TwoPaCo graph construction is mostly single-threaded.
-  salmon: {threads: 16, mem_mb: 204800, runtime: 480}
+  # so peak RAM scales with genome size -- measured ~16 GB on GRCm38, and
+  # 20 GB (~82% efficiency) suits ~3 Gbp references. Runtime is generous
+  # because TwoPaCo graph construction is mostly single-threaded. Raise
+  # mem_mb for much larger references (a ~11 Gbp reference OOMs with the same
+  # "-9" signature as bwa-mem2).
+  salmon: {threads: 2, mem_mb: 20480, runtime: 480}
   # MultiQC report + its inputs (pipeline_info/ versions/ under outdir).
   software_versions: {threads: 1, mem_mb: 2000, runtime: 30}
   resources_used: {threads: 1, mem_mb: 2000, runtime: 60}

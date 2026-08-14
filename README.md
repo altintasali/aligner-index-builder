@@ -164,15 +164,18 @@ How jobs are sized:
 
 - Each rule's `threads`, `mem_mb` and `runtime` come from
   `workflow/default-config/resources.yaml`. For a real genome the defaults
-  are middle-of-the-road; add a `resources:` block to the generated config
-  (deep-merged over the defaults) to override e.g. STAR's 48 GB, or pass
+  are tuned to ~80% RAM efficiency against a measured GRCm38 run (index
+  builds use little CPU, so all 9 index rules request 2 threads); add a
+  `resources:` block to the generated config (deep-merged over the defaults)
+  to override e.g. STAR's 40 GB, or pass
   `--snakemake-options '--default-resources mem_mb=... runtime=...'`.
 - The profile's own `default-resources` only cover rules that declare none.
 - `hisat2` is the big one: the splice-aware build (`hisat2-build
   --ss/--exon`, embedding the annotated splice sites and exons into the
-  index) needs ~200 GB RAM for human-sized genomes, so it requests a 200 GiB
-  node (`mem_mb: 204800`). If your cluster has no big-mem node, build the
-  plain index instead (~8-16 GB): in `workflow/rules/index.smk`, remove the
+  index) needs ~190 GB RAM for human-sized genomes (measured ~146 GB on
+  GRCm38), so it requests a 190 GiB node (`mem_mb: 194560`). If your cluster
+  has no big-mem node, build the plain index instead (~8-16 GB): in
+  `workflow/rules/index.smk`, remove the
   `--ss ... --exon ...` flags and the `splicesites:`/`exons:` inputs from the
   `hisat2` rule, and lower its memory in the generated config:
 
@@ -186,7 +189,8 @@ How jobs are sized:
   this edits the workflow source, so a later `git pull` reverts it.
 - `bwa_mem2`/`bwameth2` can rival `hisat2`: bwa-mem2's index build needs
   ~50-90 GB for a human-sized genome and scales with the reference size, so
-  the defaults also request a 200 GiB node (`mem_mb: 204800`). An
+  the defaults request 80 GiB (`bwa_mem2`, measured ~61 GB on GRCm38) and
+  160 GiB (`bwameth2`, measured ~122 GB). An
   undersized allocation is OOM-killed mid-build and `bwameth.py` surfaces it
   as `return code was:-9` inside an otherwise-empty rule log — raise
   `resources:` (or drop `threads` for the `bwa_mem2`/`bwameth2` rules, which

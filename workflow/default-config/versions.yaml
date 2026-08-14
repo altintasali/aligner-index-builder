@@ -26,7 +26,7 @@ versions:
   # expects. Classic bismark writes Bisulfite_Genome/CT_conversion/BS_CT.1.bt2
   # and takes --path_to_aligner (not --path_to_bowtie2).
   bismark: "0.25.1"
-  bwameth: ""               # conda package name is `bwameth` (unpinned; provides bwameth.py)
+  bwameth: "0.2.9"           # conda package `bwameth`; provides bwameth.py
   gffread: ">=0.12.6"
   ucsc_fatotwobit: "482"
   multiqc: "1.33"

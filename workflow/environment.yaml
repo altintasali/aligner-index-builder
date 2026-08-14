@@ -34,7 +34,7 @@ dependencies:
   # expects. Classic bismark writes Bisulfite_Genome/CT_conversion/BS_CT.1.bt2
   # and takes --path_to_aligner (not --path_to_bowtie2).
   - bismark=0.25.1
-  - bwameth
+  - bwameth=0.2.9
   - gffread >=0.12.6
   - ucsc-fatotwobit=482
   # MultiQC report: aggregates the resource/version/benchmark custom-content
