@@ -423,16 +423,15 @@ def main():
         # Transcript length distribution.
         tx_lengths = _parse_transcript_lengths(inp.gtf, inp.fasta)
         tx_bins = _bin_transcript_lengths(tx_lengths) if tx_lengths else {}
-        if tx_bins:
-            _write_bargraph(
-                out.gtf_tx_length,
-                "gtf_tx_length",
-                "Transcript length distribution",
-                "Distribution of transcript lengths (sum of exon spans) from "
-                "the GTF, binned into fixed size categories.",
-                {genome_label: tx_bins},
-                pconfig={"cpswitch_counts_label": "Transcripts"},
-            )
+        _write_bargraph(
+            out.gtf_tx_length,
+            "gtf_tx_length",
+            "Transcript length distribution",
+            "Distribution of transcript lengths (sum of exon spans) from "
+            "the GTF, binned into fixed size categories.",
+            {genome_label: tx_bins} if tx_bins else {},
+            pconfig={"cpswitch_counts_label": "Transcripts"},
+        )
 
 
 if __name__ == "__main__":

@@ -217,7 +217,7 @@ jobs:
           echo "[guards] 10/12 --remove-nonstandard keeps standard contigs"
           printf '>chr1\nACGTACGT\n>chrUn_scaffold\nACGTACGT\n>chr1_random\nACGTACGT\n>chrM\nACGTACGT\n' \
             > "$T/chrtest.fa"
-          printf '>chr1\ngene1\texon\t1\t100\t.\t+\t0\tgene_id "g1"\n' \
+          printf 'chr1\texon\t1\t100\t.\t+\t0\tgene_id "g1"\n' \
             > "$T/chrtest.gtf"
           python workflow/scripts/aligner-index-builder \
             --fasta "$T/chrtest.fa" --gtf "$T/chrtest.gtf" \
