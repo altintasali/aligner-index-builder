@@ -83,7 +83,11 @@ rule resources_used:
         resources=QC_RESOURCES_USED,
         index_sizes=QC_INDEX_SIZES,
         annotation=(QC_ANNOTATION_SUMMARY if GENES_GTF else []),
+        gtf_features=(QC_GTF_FEATURES if GENES_GTF else []),
+        gtf_chroms=(QC_GTF_CHROMS if GENES_GTF else []),
+        gtf_tx_length=(QC_GTF_TX_LENGTH if GENES_GTF else []),
     params:
+        genome_name=GENOME_NAME,
         fasta_path=FASTA,
         gtf_path=GTF or "",
         tools=TOOLS,
@@ -208,6 +212,9 @@ rule multiqc:
         config=QC_CONFIG_USED,
         index_sizes=QC_INDEX_SIZES,
         annotation=(QC_ANNOTATION_SUMMARY if GENES_GTF else []),
+        gtf_features=(QC_GTF_FEATURES if GENES_GTF else []),
+        gtf_chroms=(QC_GTF_CHROMS if GENES_GTF else []),
+        gtf_tx_length=(QC_GTF_TX_LENGTH if GENES_GTF else []),
         benchmark=QC_BENCHMARK_SUMMARY,
     output:
         html=QC_MULTIQC_HTML,

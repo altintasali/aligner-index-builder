@@ -33,4 +33,7 @@ custom_content:
     - config_used
     - index_sizes
     - annotation_summary
+    - gtf_features
+    - gtf_chroms
+    - gtf_tx_length
     - resource_usage

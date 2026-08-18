@@ -110,7 +110,9 @@ def _build_parser():
         epilog=(
             "Example:\n"
             "  aligner-index-builder --fasta genome.fa --gtf genes.gtf "
-            "-o results/GRCh38 --tools all"
+            "-o results/GRCh38 --tools all --cores 16\n"
+            "  aligner-index-builder --fasta genome.fa --gtf genes.gtf "
+            "-o results/GRCh38 --tools all --slurm"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -194,8 +196,10 @@ def _build_parser():
              "contigs matching any pattern are removed (applied last)",
     )
     parser.add_argument(
-        "--cores", type=int, default=1, metavar="N",
-        help="snakemake --cores (default 1)",
+        "--cores", type=int, default=None, metavar="N",
+        help="snakemake --cores (default 1 for local runs; omitted with "
+             "--slurm so the profile's local-cores and jobs settings "
+             "apply)",
     )
     parser.add_argument(
         "--slurm", action="store_true",
@@ -281,7 +285,7 @@ def main(argv=None):
     if not args.fasta:
         _die("--fasta is required (not needed only with --unlock)")
 
-    if args.cores < 1:
+    if args.cores is not None and args.cores < 1:
         _die("--cores must be >= 1")
 
     fasta = _normalize(args.fasta)
@@ -346,8 +350,11 @@ def main(argv=None):
         # lock) lives there, not in the repo clone, and each run locks only
         # its own outdir.
         "--directory", outdir,
-        "--cores", str(args.cores),
     ]
+    if args.cores is not None:
+        cmd += ["--cores", str(args.cores)]
+    elif not args.slurm:
+        cmd += ["--cores", "1"]
     if args.dry_run:
         cmd.append("-n")
     if args.slurm:

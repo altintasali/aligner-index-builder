@@ -2,26 +2,17 @@
 
 A [Snakemake](https://snakemake.readthedocs.io/) pipeline that builds a
 complete set of aligner/indexer indices from a reference genome **FASTA**
-(+ optional **GTF**), inspired by the
-[snakePipes](https://github.com/maxplanck-ie/snakepipes) `createIndices`
-layout: STAR, HISAT2, bowtie2, bwa, bwa-mem2, bwameth, bwameth2,
-**Bismark** and salmon -- plus the `.fai` / `.2bit`
-side products and a `gffread` transcriptome for decoy-aware salmon indexes.
-Each tool's index set lands in its own lowercase dir under `<outdir>/index/`
-(`index/star/`, `index/bwa-mem2/`, `index/bwameth/`, ... -- see
-[What gets built](#what-gets-built)).
-Every run also produces a [MultiQC](https://multiqc.info/) report
-(`qc/multiqc_report.html`) summarising the reference and annotation, the
-per-index disk footprints, the resolved run configuration, per-rule resource
-usage, and the pinned tool versions (see [MultiQC report](#multiqc-report)).
+(+ optional **GTF**): STAR, HISAT2, bowtie2, bwa, bwa-mem2, bwameth,
+bwameth2, **Bismark** and salmon.  Each tool's index set lands in its own
+lowercase dir under `<outdir>/index/`.  A
+[MultiQC](https://multiqc.info/) report summarises the reference, index
+sizes, run configuration and pinned tool versions.
 
-It is driven by a small CLI (`workflow/scripts/aligner-index-builder`) that
-writes a run config and hands off to snakemake; tool versions are pinned
-exactly. Everything runs out of a pre-built conda environment, distributed as
-a GitHub Release asset -- no conda, no container runtime, no per-tool solves.
+Driven by a small CLI that writes a run config and hands off to snakemake;
+tool versions are pinned exactly.  Everything runs out of a pre-built
+conda environment — no per-tool solves.
 
-Companion of [TEtranscripts-pipe](https://github.com/altintasali/TEtranscripts-pipe)
-(the RNA-seq quantification pipeline that consumes these index sets).
+Companion of [TEtranscripts-pipe](https://github.com/altintasali/TEtranscripts-pipe).
 
 ---
 
@@ -29,14 +20,13 @@ Companion of [TEtranscripts-pipe](https://github.com/altintasali/TEtranscripts-p
 
 - [Requirements](#requirements)
 - [Install](#install)
-- [Usage](#usage)
+- [Quick start](#quick-start)
 - [HPC / SLURM](#hpc--slurm)
+- [Usage](#usage)
+- [Chromosome filtering](#chromosome-filtering)
+- [Reference FASTA recommendation](#reference-fasta-recommendation)
 - [What gets built](#what-gets-built)
-- [Output layout](#output-layout)
-- [MultiQC report](#multiqc-report)
 - [Direct snakemake use](#direct-snakemake-use)
-- [Config reference](#config-reference)
-- [Architecture](#architecture)
 - [Versioning & releases](#versioning--releases)
 - [Caveats](#caveats)
 
@@ -50,7 +40,7 @@ Companion of [TEtranscripts-pipe](https://github.com/altintasali/TEtranscripts-p
 
 ## Install
 
-### Option A -- pre-built environment (recommended)
+### Option A — pre-built environment (recommended)
 
 ```bash
 git clone https://github.com/altintasali/aligner-index-builder.git
@@ -63,119 +53,55 @@ source workflow/scripts/activate-env.sh    # activate in the current shell
 `install-env.sh` downloads `aligner-index-builder-<version>-env.tar.gz` (+
 `SHA256SUMS`) from the latest GitHub Release and unpacks it. Options:
 
-- `-o PREFIX` -- install elsewhere (e.g. shared storage for a cluster)
-- `-r vX.Y.Z` -- pin a specific release instead of latest
-- `-f` -- overwrite even if `PREFIX` holds unrelated files
+- `-o PREFIX` — install elsewhere (e.g. shared storage for a cluster)
+- `-r vX.Y.Z` — pin a specific release instead of latest
+- `-f` — overwrite even if `PREFIX` holds unrelated files
 
 On SLURM compute nodes you can skip activation and just use the binaries:
 `export PATH="$PREFIX/bin:$PATH"`.
 
-### Option B -- conda (any platform)
+### Option B — conda (any platform)
 
 ```bash
 conda env create -f workflow/environment.yaml
 conda activate aligner-index-builder
 ```
 
-## Usage
+## Quick start
+
+Build all indices for the human reference:
 
 ```bash
-python workflow/scripts/aligner-index-builder \
-  --fasta genome.fa --gtf genes.gtf \
+source workflow/scripts/activate-env.sh
+
+./workflow/scripts/aligner-index-builder \
+  --fasta https://ftp.ensembl.org/pub/grch38/current/fasta/homo_sapiens/dna/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz \
+  --gtf https://ftp.ensembl.org/pub/grch38/current/gtf/homo_sapiens/Homo_sapiens.GRCh38.113.gtf.gz \
   -o results/GRCh38 \
-  --tools all \
-  --cores 16
+  --tools all --cores 16
 ```
 
-`--fasta` and `--gtf` may be local paths (plain, `.gz` or `.bz2` -- the
-compression is sniffed, not assumed) or `http(s)://`, `ftp://`, `file://`
-URLs. The CLI:
-
-1. resolves local paths to absolute paths,
-2. writes the run config to `<outdir>/config/<genome_name>.config.yaml`,
-3. runs snakemake on the bundled `workflow/Snakefile`,
-4. on success writes a manifest to `<outdir>/config/<genome_name>.yaml`.
-
-A run always produces the FASTA (normalized + decompressed) with `.fai` and
-`.2bit`, so you can hand those on to downstream pipelines.
-
-### CLI options
-
-| Option | Description |
-| --- | --- |
-| `--fasta PATH` | reference FASTA (required); local path or URL |
-| `--gtf PATH` | gene annotation GTF (local path or URL); required for `star`, `hisat2`, `salmon`, which are otherwise skipped |
-| `-o, --outdir DIR` | output directory, created if missing (required) |
-| `--genome-name NAME` | name for the generated config + manifest (default: outdir basename) |
-| `--tools TOOL...` | space- or comma-separated tools, or `all` (default) |
-| `--star-extra FLAGS` | extra `STAR --runMode genomeGenerate` flags (e.g. small-genome flags, see [Caveats](#caveats)) |
-| `--hisat2-extra FLAGS` | extra `hisat2-build` flags |
-| `--bowtie2-extra FLAGS` | extra `bowtie2-build` flags |
-| `--bwa-extra FLAGS` | extra `bwa index` flags |
-| `--bwa-mem2-extra FLAGS` | extra `bwa-mem2 index` flags |
-| `--bwameth-extra FLAGS` | extra `bwameth.py index` flags |
-| `--bwameth2-extra FLAGS` | extra `bwameth.py index-mem2` flags |
-| `--salmon-extra FLAGS` | extra `salmon index` flags (e.g. `-k 21`) |
-| `--bismark-extra FLAGS` | extra `bismark_genome_preparation` flags |
-| `--keep-chroms REGEX...` | regex pattern(s) — only keep contigs matching at least one; applied first (before `--remove-nonstandard` / `--exclude-chroms`) |
-| `--remove-nonstandard` | remove non-standard chromosomes; keeps `^(chr)?(\d+\|[XYWZ]\|MT?)$` (case-insensitive; covers UCSC + Ensembl naming for human, mouse, pig, chicken) |
-| `--exclude-chroms REGEX...` | regex pattern(s) — remove contigs matching any; applied last |
-| `--cores N` | snakemake `--cores` (default 1) |
-| `--slurm` | submit jobs to SLURM via the bundled profile `workflow/profiles/slurm` (see [HPC / SLURM](#hpc--slurm)) |
-| `--dry-run` | write the config and print the snakemake plan, run nothing |
-| `--unlock` | clear a stale snakemake lock left by an interrupted run (reuses `<outdir>/config/<name>.config.yaml`; only `-o`/`--genome-name` needed) |
-| `--keep-temp` | keep intermediates snakemake would delete |
-| `--snakemake-options ARGS` | extra snakemake arguments, passed through verbatim (quoted) |
-| `-v, --verbose` | print snakemake's shell commands |
-| `--version` | print version |
-
-### Chromosome filtering
-
-The workflow optionally subsets the reference FASTA before building any
-index.  This is useful for dropping unplaced scaffolds, haplotypes and
-other non-standard contigs.  Three independent options can be combined
-(in the order shown):
+On SLURM, replace `--cores 16` with `--slurm` (see
+[HPC / SLURM](#hpc--slurm)):
 
 ```bash
-python workflow/scripts/aligner-index-builder \
-  --fasta genome.fa --gtf genes.gtf \
-  -o results/GRCh38 --tools all \
-  --keep-chroms '^\d+$' \           # keep numeric contigs only
-  --remove-nonstandard \           # also drop non-standard names
-  --exclude-chroms 'chrM'          # finally, drop mitochondrial
+./workflow/scripts/aligner-index-builder \
+  --fasta https://ftp.ensembl.org/pub/grch38/current/fasta/homo_sapiens/dna/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz \
+  --gtf https://ftp.ensembl.org/pub/grch38/current/gtf/homo_sapiens/Homo_sapiens.GRCh38.113.gtf.gz \
+  -o results/GRCh38 \
+  --tools all --slurm
 ```
 
-- **`--keep-chroms`** — positive selection: only contigs matching at
-  least one regex survive.  Applied first.
-- **`--remove-nonstandard`** — built-in filter: keeps contigs matching
-  `^(chr)?(\d+|[XYWZ]|MT?)$` (case-insensitive, covers UCSC and
-  Ensembl naming for human, mouse, pig, chicken).  Applied second.
-- **`--exclude-chroms`** — negative filter: removes contigs matching any
-  regex.  Applied last.
+Build a mouse index with chromosome filtering:
 
-When none of these flags are set the FASTA is passed through unchanged.
-The report's "Resources used" section shows genome masking status (soft-
-masked / hard-masked / unmasked) for both the original and filtered FASTA
-when filtering was applied.
-
-### Reference FASTA recommendation
-
-Use the **soft-masked primary assembly** for genome indexing and
-downstream analysis.  This is the standard choice because:
-
-- **Soft-masking** (lowercase letters for repetitive elements) preserves
-  repeat annotations in the FASTA while letting each aligner decide how
-  to use them (STAR, HISAT2, BWA-MEM all handle it natively).
-- **Hard-masking** (N's replacing repeats) is generally discouraged for
-  alignment — reads cannot map to N's and information is lost.
-- The **primary assembly** (one haplotype per chromosome) avoids
-  ambiguity and keeps index size manageable.  Drop alternate haplotypes
-  and unplaced scaffolds with `--remove-nonstandard` or `--keep-chroms`.
-
-Download the soft-masked primary assembly from
-[Ensembl](https://www.ensembl.org/info/data/ftp/index.html) or
-[UCSC](https://hgdownload.soe.ucsc.edu/downloads.html) and pass it
-directly to `--fasta`.
+```bash
+./workflow/scripts/aligner-index-builder \
+  --fasta https://ftp.ensembl.org/pub/grcm39/current/fasta/mus_musculus/dna/Mus_musculus.GRCm39.dna.primary_assembly.fa.gz \
+  --gtf https://ftp.ensembl.org/pub/grcm39/current/gtf/mus_musculus/Mus_musculus.GRCm39.113.gtf.gz \
+  -o results/GRCm39 \
+  --tools all --cores 16 \
+  --remove-nonstandard
+```
 
 ## HPC / SLURM
 
@@ -185,10 +111,14 @@ to the CLI and every job is submitted with `sbatch` instead of running
 locally:
 
 ```bash
-python workflow/scripts/aligner-index-builder \
+./workflow/scripts/aligner-index-builder \
   --fasta genome.fa --gtf genes.gtf \
   -o results/GRCh38 --tools all --slurm
 ```
+
+When `--slurm` is used without `--cores`, the CLI omits `--cores` from the
+snakemake command so the profile's `local-cores: 4` and `jobs: 50` settings
+apply.  You can still pass `--cores` to override.
 
 The same profile works for direct snakemake runs (from the repo root, passing
 `--directory <outdir>` so `.snakemake` stays in the output dir):
@@ -272,6 +202,108 @@ visible there — prepend its `bin` to `PATH` on the nodes, e.g. with
 `--slurm` also works with `--dry-run` (validates the profile, submits
 nothing). `sbatch` must be available wherever snakemake runs.
 
+## Usage
+
+```bash
+./workflow/scripts/aligner-index-builder \
+  --fasta genome.fa --gtf genes.gtf \
+  -o results/GRCh38 \
+  --tools all --cores 16
+```
+
+`--fasta` and `--gtf` may be local paths (plain, `.gz` or `.bz2` — the
+compression is sniffed, not assumed) or `http(s)://`, `ftp://`, `file://`
+URLs.  The CLI:
+
+1. resolves local paths to absolute paths,
+2. writes the run config to `<outdir>/config/<genome_name>.config.yaml`,
+3. runs snakemake on the bundled `workflow/Snakefile`,
+4. on success writes a manifest to `<outdir>/config/<genome_name>.yaml`.
+
+A run always produces the FASTA (normalized + decompressed) with `.fai` and
+`.2bit`, so you can hand those on to downstream pipelines.
+
+<details>
+<summary>CLI options</summary>
+
+| Option | Description |
+| --- | --- |
+| `--fasta PATH` | reference FASTA (required); local path or URL |
+| `--gtf PATH` | gene annotation GTF (local path or URL); required for `star`, `hisat2`, `salmon`, which are otherwise skipped |
+| `-o, --outdir DIR` | output directory, created if missing (required) |
+| `--genome-name NAME` | name for the generated config + manifest (default: outdir basename) |
+| `--tools TOOL...` | space- or comma-separated tools, or `all` (default) |
+| `--star-extra FLAGS` | extra `STAR --runMode genomeGenerate` flags (e.g. small-genome flags, see [Caveats](#caveats)) |
+| `--hisat2-extra FLAGS` | extra `hisat2-build` flags |
+| `--bowtie2-extra FLAGS` | extra `bowtie2-build` flags |
+| `--bwa-extra FLAGS` | extra `bwa index` flags |
+| `--bwa-mem2-extra FLAGS` | extra `bwa-mem2 index` flags |
+| `--bwameth-extra FLAGS` | extra `bwameth.py index` flags |
+| `--bwameth2-extra FLAGS` | extra `bwameth.py index-mem2` flags |
+| `--salmon-extra FLAGS` | extra `salmon index` flags (e.g. `-k 21`) |
+| `--bismark-extra FLAGS` | extra `bismark_genome_preparation` flags |
+| `--keep-chroms REGEX...` | regex pattern(s) — only keep contigs matching at least one; applied first (before `--remove-nonstandard` / `--exclude-chroms`) |
+| `--remove-nonstandard` | remove non-standard chromosomes; keeps `^(chr)?(\d+\|[XYWZ]\|MT?)$` (case-insensitive; covers UCSC + Ensembl naming for human, mouse, pig, chicken) |
+| `--exclude-chroms REGEX...` | regex pattern(s) — remove contigs matching any; applied last |
+| `--cores N` | snakemake `--cores` (default 1; omitted with `--slurm`) |
+| `--slurm` | submit jobs to SLURM via the bundled profile `workflow/profiles/slurm` (see [HPC / SLURM](#hpc--slurm)) |
+| `--dry-run` | write the config and print the snakemake plan, run nothing |
+| `--unlock` | clear a stale snakemake lock left by an interrupted run (reuses `<outdir>/config/<name>.config.yaml`; only `-o`/`--genome-name` needed) |
+| `--keep-temp` | keep intermediates snakemake would delete |
+| `--snakemake-options ARGS` | extra snakemake arguments, passed through verbatim (quoted) |
+| `-v, --verbose` | print snakemake's shell commands |
+| `--version` | print version |
+
+</details>
+
+## Chromosome filtering
+
+The workflow optionally subsets the reference FASTA before building any
+index.  This is useful for dropping unplaced scaffolds, haplotypes and
+other non-standard contigs.  Three independent options can be combined
+(in the order shown):
+
+```bash
+./workflow/scripts/aligner-index-builder \
+  --fasta genome.fa --gtf genes.gtf \
+  -o results/GRCh38 --tools all \
+  --keep-chroms '^\d+$' \           # keep numeric contigs only
+  --remove-nonstandard \           # also drop non-standard names
+  --exclude-chroms 'chrM'          # finally, drop mitochondrial
+```
+
+- **`--keep-chroms`** — positive selection: only contigs matching at
+  least one regex survive.  Applied first.
+- **`--remove-nonstandard`** — built-in filter: keeps contigs matching
+  `^(chr)?(\d+|[XYWZ]|MT?)$` (case-insensitive, covers UCSC and
+  Ensembl naming for human, mouse, pig, chicken).  Applied second.
+- **`--exclude-chroms`** — negative filter: removes contigs matching any
+  regex.  Applied last.
+
+When none of these flags are set the FASTA is passed through unchanged.
+The report's "Resources used" section shows genome masking status (soft-
+masked / hard-masked / unmasked) for both the original and filtered FASTA
+when filtering was applied.
+
+## Reference FASTA recommendation
+
+Use the **soft-masked primary assembly** for genome indexing and
+downstream analysis.  This is the standard choice because:
+
+- **Soft-masking** (lowercase letters for repetitive elements) preserves
+  repeat annotations in the FASTA while letting each aligner decide how
+  to use them (STAR, HISAT2, BWA-MEM all handle it natively).
+- **Hard-masking** (N's replacing repeats) is generally discouraged for
+  alignment — reads cannot map to N's and information is lost.
+- The **primary assembly** (one haplotype per chromosome) avoids
+  ambiguity and keeps index size manageable.  Drop alternate haplotypes
+  and unplaced scaffolds with `--remove-nonstandard` or `--keep-chroms`.
+
+Download the soft-masked primary assembly from
+[Ensembl](https://www.ensembl.org/info/data/ftp/index.html) or
+[UCSC](https://hgdownload.soe.ucsc.edu/downloads.html) and pass it
+directly to `--fasta`.
+
 ## What gets built
 
 | Tool | Index dir | Marker file | Notes |
@@ -287,14 +319,15 @@ nothing). `sbatch` must be available wherever snakemake runs.
 | salmon | `index/salmon/` | `seq.bin` | needs GTF; decoy-aware (transcripts via `gffread` + genome as decoys) |
 | — | `genome_fasta/` | `genome.fa`, `genome.fa.fai`, `genome.2bit` | always; `samtools faidx` + `faToTwoBit` |
 | — | `annotation/` | `genes.gtf`, `transcripts.fa` | when a GTF is given |
-| — | `qc/` | `multiqc_report.html`, `multiqc_report_data/` | always; MultiQC report (see [MultiQC report](#multiqc-report)) |
+| — | `qc/` | `multiqc_report.html`, `multiqc_report_data/` | always; MultiQC report |
 
 Tool version pins live in `workflow/default-config/versions.yaml` (also
 mirrored into `workflow/environment.yaml`). Note: STAR 2.7.11b is the final
 STAR release and pins `htslib < 1.23`, so `samtools` is pinned to `1.22.1` to
 stay in the same environment.
 
-## Output layout
+<details>
+<summary>Output layout</summary>
 
 ```
 results/GRCh38/
@@ -334,30 +367,39 @@ results/GRCh38/
     └── benchmark_summary_mqc.json  # report: "Resource usage" table
 ```
 
-## MultiQC report
+</details>
+
+<details>
+<summary>MultiQC report</summary>
 
 The pipeline has no per-sample data (no reads, no alignments), so the report in
 `qc/multiqc_report.html` is custom content aggregated by MultiQC from the files
 under `versions/` and `pipeline_info/`:
 
-- **Resources used** -- reference FASTA path + SHA-256, contig count / total
+- **Resources used** — reference FASTA path + SHA-256, contig count / total
   length / N50 / GC%, GTF path + SHA-256, the FASTA-vs-GTF contig-consistency
   result, and the index sets built (`resources_used_mqc.json`).
-- **Index sizes** -- disk footprint of each built index directory
+- **Index sizes** — disk footprint of each built index directory
   (`index_sizes_mqc.json`).
-- **Annotation summary** -- gene/transcript counts from the GTF (+ the gffread
+- **Annotation summary** — gene/transcript counts from the GTF (+ the gffread
   transcriptome when salmon is built). Omitted when no GTF is given
   (`annotation_summary_mqc.json`).
-- **Configuration used** -- the resolved run config (`config_used_mqc.json`).
-- **Resource usage** -- per-rule job count, wall time, and CPU/RAM efficiency
+- **GTF feature types** — bar chart of each feature type count in the GTF.
+- **Genes per chromosome** — bar chart of gene counts per chromosome/contig.
+- **Transcript length distribution** — bar chart of transcript lengths (sum of
+  exon spans) binned into fixed size categories.
+- **Configuration used** — the resolved run config (`config_used_mqc.json`).
+- **Resource usage** — per-rule job count, wall time, and CPU/RAM efficiency
   (allocated vs actually used, from the Snakemake benchmark tables)
   (`benchmark_summary_mqc.json`). Handy for sizing your cluster before a full run.
-- **Software Versions** -- the pinned tool versions from
+- **Software Versions** — the pinned tool versions from
   `versions.yaml` (`versions/<genome>_mqc_versions.yml`, auto-discovered).
 
 The report title, comment and section order live in
 `workflow/default-config/multiqc_config.yaml`. The report is cheap (seconds),
 so it is always produced.
+
+</details>
 
 ## Direct snakemake use
 
@@ -375,10 +417,11 @@ hand-written config, either add `repo_root` too or run snakemake from the
 repo root.
 
 The config chain loaded by `workflow/Snakefile` is:
-`workflow/default-config/{versions,resources}.yaml` (built-in) &rarr; your run
-config &rarr; optional `resources:` override block inside the run config.
+`workflow/default-config/{versions,resources}.yaml` (built-in) → your run
+config → optional `resources:` override block inside the run config.
 
-## Config reference
+<details>
+<summary>Config reference</summary>
 
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
@@ -399,7 +442,10 @@ config &rarr; optional `resources:` override block inside the run config.
 | `bismark_extra` | string | `""` | extra bismark_genome_preparation flags |
 | `resources` | map | — | per-rule `{threads, mem_mb, runtime}` overrides (deep-merged over `default-config/resources.yaml`) |
 
-## Architecture
+</details>
+
+<details>
+<summary>Architecture</summary>
 
 ```
 aligner-index-builder (CLI)
@@ -419,18 +465,19 @@ aligner-index-builder (CLI)
 ```mermaid
 flowchart LR
     fasta[(FASTA)] --> prep[prepare_genome]
+    prep --> filt[filter_genome]
     gtf[(GTF)] --> prepgtf[prepare_gtf]
-    prep --> fai[samtools faidx]
-    prep --> twoBit[faToTwoBit]
-    prep --> star[STAR index]
-    prep --> hisat2[HISAT2 index]
-    prep --> bowtie2[bowtie2 index]
-    prep --> bwa[bwa index]
-    prep --> bwa2[bwa-mem2 index]
-    prep --> bwameth[bwameth index]
-    prep --> bwameth2[bwameth2 index]
-    prep --> bismark[Bismark index]
-    prep --> salmon[salmon index]
+    filt --> fai[samtools faidx]
+    filt --> twoBit[faToTwoBit]
+    filt --> star[STAR index]
+    filt --> hisat2[HISAT2 index]
+    filt --> bowtie2[bowtie2 index]
+    filt --> bwa[bwa index]
+    filt --> bwa2[bwa-mem2 index]
+    filt --> bwameth[bwameth index]
+    filt --> bwameth2[bwameth2 index]
+    filt --> bismark[Bismark index]
+    filt --> salmon[salmon index]
     prepgtf --> check[check_chrom_consistency]
     prepgtf --> star
     prepgtf --> hisat2
@@ -452,6 +499,8 @@ Per-tool conda env files are generated into `workflow/envs/generated/` at
 parse time from `versions.yaml`; they're used only with
 `snakemake --sdm conda`. The pre-built env already ships the same tools, so
 plain `snakemake` runs use the activated environment directly.
+
+</details>
 
 ## Versioning & releases
 

@@ -246,6 +246,9 @@ QC_ANNOTATION_SUMMARY = os.path.join(
 QC_BENCHMARK_SUMMARY = os.path.join(
     OUTDIR, "pipeline_info", "benchmark_summary_mqc.json"
 )
+QC_GTF_FEATURES = os.path.join(OUTDIR, "pipeline_info", "gtf_features_mqc.json")
+QC_GTF_CHROMS = os.path.join(OUTDIR, "pipeline_info", "gtf_chroms_mqc.json")
+QC_GTF_TX_LENGTH = os.path.join(OUTDIR, "pipeline_info", "gtf_tx_length_mqc.json")
 QC_MULTIQC_HTML = os.path.join(OUTDIR, "qc", "multiqc_report.html")
 QC_MULTIQC_DATA = os.path.join(OUTDIR, "qc", "multiqc_report_data")
 

@@ -117,25 +117,116 @@ def _masking_status(path):
     return status, soft_count, soft_pct, hard_count, hard_pct
 
 
-def _format_masking_row(status, soft_count, soft_pct, hard_count, hard_pct):
-    """Return a dict of rows for the Resources used table."""
-    rows = {
-        "Masking status": status,
-        "Soft-masked bases": f"{soft_count:,} ({soft_pct:.1f}%)",
-        "Hard-masked bases (N)": f"{hard_count:,} ({hard_pct:.1f}%)",
-    }
-    return rows
 
+def _parse_gtf_features(path):
+    """Count features by type (column 3) and genes per chromosome (column 1).
 
-def _count_gtf_features(path, feature):
-    n = 0
+    Returns (feature_counts, chrom_gene_counts) where:
+      feature_counts   = {feature_type: count}
+      chrom_gene_counts = {chrom: gene_count}
+    """
+    from collections import Counter
+
+    feature_counts = Counter()
+    chrom_genes = Counter()
     with open(path) as fh:
         for line in fh:
             if not line.strip() or line.startswith("#"):
                 continue
-            if line.split("\t")[2] == feature:
-                n += 1
-    return n
+            cols = line.split("\t")
+            if len(cols) < 3:
+                continue
+            feature_counts[cols[2]] += 1
+            if cols[2] == "gene":
+                chrom_genes[cols[0]] += 1
+    return dict(feature_counts), dict(chrom_genes)
+
+
+def _count_gtf_features(path, feature):
+    """Count occurrences of a specific feature type in a GTF."""
+    feature_counts, _ = _parse_gtf_features(path)
+    return feature_counts.get(feature, 0)
+
+
+def _parse_transcript_lengths(gtf_path, fasta_path):
+    """Compute transcript lengths by summing exon spans.
+
+    Returns a dict of {transcript_id: length_bp} for every transcript in the
+    GTF.  Transcripts without exon features are skipped.
+    """
+    from collections import defaultdict
+
+    exons = defaultdict(list)
+    with open(gtf_path) as fh:
+        for line in fh:
+            if not line.strip() or line.startswith("#"):
+                continue
+            cols = line.split("\t")
+            if len(cols) < 9 or cols[2] != "exon":
+                continue
+            # Parse transcript_id from the 9th column attributes.
+            attrs = cols[8]
+            tx_id = None
+            for tok in attrs.split(";"):
+                tok = tok.strip()
+                if tok.startswith("transcript_id"):
+                    # transcript_id "ENST00000..."
+                    tx_id = tok.split('"')[1] if '"' in tok else tok.split()[-1]
+                    break
+            if tx_id:
+                exons[tx_id].append((int(cols[3]), int(cols[4])))
+    # Length = sum of (end - start + 1) for each exon.
+    return {tx: sum(e - s + 1 for s, e in spans) for tx, spans in exons.items()}
+
+
+_TX_LENGTH_BINS = [
+    ("0-500 bp", 0, 500),
+    ("500-1 kb", 500, 1000),
+    ("1-2 kb", 1000, 2000),
+    ("2-5 kb", 2000, 5000),
+    ("5-10 kb", 5000, 10000),
+    ("10+ kb", 10000, float("inf")),
+]
+
+
+def _bin_transcript_lengths(lengths):
+    """Bin transcript lengths into fixed categories.
+
+    Returns an ordered {label: count} dict.
+    """
+    counts = {label: 0 for label, _, _ in _TX_LENGTH_BINS}
+    for length in lengths.values():
+        for label, lo, hi in _TX_LENGTH_BINS:
+            if lo <= length < hi:
+                counts[label] += 1
+                break
+    return counts
+
+
+def _write_bargraph(path, doc_id, section_name, description, data, pconfig=None):
+    """Write a MultiQC bargraph custom-content JSON.
+
+    data: {sample_name: {category: count}}
+    """
+    if pconfig is None:
+        pconfig = {}
+    doc = {
+        "id": doc_id,
+        "section_name": section_name,
+        "description": description,
+        "plot_type": "bargraph",
+        "pconfig": {
+            "id": f"{doc_id}_plot",
+            "title": section_name,
+            "ylab": "Count",
+            "cpswitch_counts_label": "Count",
+            "cpswitch_catted_label": "Categorical",
+            **pconfig,
+        },
+        "data": data,
+    }
+    with open(path, "w") as fh:
+        json.dump(doc, fh, indent=2)
 
 
 def _count_headers(path):
@@ -195,6 +286,9 @@ def _is_empty(value):
 
 
 def main():
+    import sys
+    sys.stderr = open(snakemake.log[0], "w")  # noqa: F821
+
     params = snakemake.params  # noqa: F821
     inp = snakemake.input  # noqa: F821
     out = snakemake.output  # noqa: F821
@@ -292,8 +386,6 @@ def main():
             "Genes (GTF)": _count_gtf_features(gtf, "gene"),
             "Transcripts (GTF)": _count_gtf_features(gtf, "transcript"),
         }
-        if not _is_empty(inp.transcripts):
-            annotation["Transcripts (gffread)"] = _count_headers(inp.transcripts)
         _write_table(
             out.annotation,
             "annotation_summary",
@@ -303,6 +395,44 @@ def main():
             annotation,
             col_header="Feature",
         )
+
+    # GTF annotation plots (only when a GTF was provided).
+    if has_gtf:
+        feature_counts, chrom_gene_counts = _parse_gtf_features(inp.gtf)
+        genome_label = params.get("genome_name", "genome")
+
+        # Feature type bar chart.
+        _write_bargraph(
+            out.gtf_features,
+            "gtf_features",
+            "GTF feature types",
+            "Count of each feature type in the gene annotation GTF.",
+            {genome_label: feature_counts},
+        )
+
+        # Genes per chromosome bar chart.
+        _write_bargraph(
+            out.gtf_chroms,
+            "gtf_chroms",
+            "Genes per chromosome",
+            "Number of gene features per chromosome/contig in the GTF.",
+            {genome_label: chrom_gene_counts},
+            pconfig={"cpswitch_counts_label": "Genes"},
+        )
+
+        # Transcript length distribution.
+        tx_lengths = _parse_transcript_lengths(inp.gtf, inp.fasta)
+        tx_bins = _bin_transcript_lengths(tx_lengths) if tx_lengths else {}
+        if tx_bins:
+            _write_bargraph(
+                out.gtf_tx_length,
+                "gtf_tx_length",
+                "Transcript length distribution",
+                "Distribution of transcript lengths (sum of exon spans) from "
+                "the GTF, binned into fixed size categories.",
+                {genome_label: tx_bins},
+                pconfig={"cpswitch_counts_label": "Transcripts"},
+            )
 
 
 if __name__ == "__main__":
