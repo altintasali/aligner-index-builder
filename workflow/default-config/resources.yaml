@@ -17,6 +17,7 @@
 resources:
   check_chrom_consistency: {threads: 1, mem_mb: 2000, runtime: 30}
   prepare_genome: {threads: 1, mem_mb: 2000, runtime: 30}
+  filter_genome: {threads: 1, mem_mb: 2000, runtime: 30}
   prepare_gtf: {threads: 1, mem_mb: 2000, runtime: 30}
   fasta_fai: {threads: 1, mem_mb: 2000, runtime: 30}
   fasta_2bit: {threads: 1, mem_mb: 8000, runtime: 60}

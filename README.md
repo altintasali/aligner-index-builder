@@ -108,9 +108,18 @@ A run always produces the FASTA (normalized + decompressed) with `.fai` and
 | `-o, --outdir DIR` | output directory, created if missing (required) |
 | `--genome-name NAME` | name for the generated config + manifest (default: outdir basename) |
 | `--tools TOOL...` | space- or comma-separated tools, or `all` (default) |
-| `--sjdb-overhang N` | STAR splice-junction overhang, usually read length − 1 (default 100) |
 | `--star-extra FLAGS` | extra `STAR --runMode genomeGenerate` flags (e.g. small-genome flags, see [Caveats](#caveats)) |
-| `--salmon-kmer N` | salmon k-mer length (default 31) |
+| `--hisat2-extra FLAGS` | extra `hisat2-build` flags |
+| `--bowtie2-extra FLAGS` | extra `bowtie2-build` flags |
+| `--bwa-extra FLAGS` | extra `bwa index` flags |
+| `--bwa-mem2-extra FLAGS` | extra `bwa-mem2 index` flags |
+| `--bwameth-extra FLAGS` | extra `bwameth.py index` flags |
+| `--bwameth2-extra FLAGS` | extra `bwameth.py index-mem2` flags |
+| `--salmon-extra FLAGS` | extra `salmon index` flags (e.g. `-k 21`) |
+| `--bismark-extra FLAGS` | extra `bismark_genome_preparation` flags |
+| `--keep-chroms REGEX...` | regex pattern(s) — only keep contigs matching at least one; applied first (before `--remove-nonstandard` / `--exclude-chroms`) |
+| `--remove-nonstandard` | remove non-standard chromosomes; keeps `^(chr)?(\d+\|[XYWZ]\|MT?)$` (case-insensitive; covers UCSC + Ensembl naming for human, mouse, pig, chicken) |
+| `--exclude-chroms REGEX...` | regex pattern(s) — remove contigs matching any; applied last |
 | `--cores N` | snakemake `--cores` (default 1) |
 | `--slurm` | submit jobs to SLURM via the bundled profile `workflow/profiles/slurm` (see [HPC / SLURM](#hpc--slurm)) |
 | `--dry-run` | write the config and print the snakemake plan, run nothing |
@@ -119,6 +128,54 @@ A run always produces the FASTA (normalized + decompressed) with `.fai` and
 | `--snakemake-options ARGS` | extra snakemake arguments, passed through verbatim (quoted) |
 | `-v, --verbose` | print snakemake's shell commands |
 | `--version` | print version |
+
+### Chromosome filtering
+
+The workflow optionally subsets the reference FASTA before building any
+index.  This is useful for dropping unplaced scaffolds, haplotypes and
+other non-standard contigs.  Three independent options can be combined
+(in the order shown):
+
+```bash
+python workflow/scripts/aligner-index-builder \
+  --fasta genome.fa --gtf genes.gtf \
+  -o results/GRCh38 --tools all \
+  --keep-chroms '^\d+$' \           # keep numeric contigs only
+  --remove-nonstandard \           # also drop non-standard names
+  --exclude-chroms 'chrM'          # finally, drop mitochondrial
+```
+
+- **`--keep-chroms`** — positive selection: only contigs matching at
+  least one regex survive.  Applied first.
+- **`--remove-nonstandard`** — built-in filter: keeps contigs matching
+  `^(chr)?(\d+|[XYWZ]|MT?)$` (case-insensitive, covers UCSC and
+  Ensembl naming for human, mouse, pig, chicken).  Applied second.
+- **`--exclude-chroms`** — negative filter: removes contigs matching any
+  regex.  Applied last.
+
+When none of these flags are set the FASTA is passed through unchanged.
+The report's "Resources used" section shows genome masking status (soft-
+masked / hard-masked / unmasked) for both the original and filtered FASTA
+when filtering was applied.
+
+### Reference FASTA recommendation
+
+Use the **soft-masked primary assembly** for genome indexing and
+downstream analysis.  This is the standard choice because:
+
+- **Soft-masking** (lowercase letters for repetitive elements) preserves
+  repeat annotations in the FASTA while letting each aligner decide how
+  to use them (STAR, HISAT2, BWA-MEM all handle it natively).
+- **Hard-masking** (N's replacing repeats) is generally discouraged for
+  alignment — reads cannot map to N's and information is lost.
+- The **primary assembly** (one haplotype per chromosome) avoids
+  ambiguity and keeps index size manageable.  Drop alternate haplotypes
+  and unplaced scaffolds with `--remove-nonstandard` or `--keep-chroms`.
+
+Download the soft-masked primary assembly from
+[Ensembl](https://www.ensembl.org/info/data/ftp/index.html) or
+[UCSC](https://hgdownload.soe.ucsc.edu/downloads.html) and pass it
+directly to `--fasta`.
 
 ## HPC / SLURM
 
@@ -331,9 +388,15 @@ config &rarr; optional `resources:` override block inside the run config.
 | `fasta` | string | — | FASTA path or URL (required) |
 | `gtf` | string/null | `null` | GTF path or URL; enables `star`/`hisat2`/`salmon` + the chromosome-consistency check |
 | `tools` | array or `all` | — | which index sets to build (required) |
-| `sjdb_overhang` | int | `100` | STAR `--sjdbOverhang` |
-| `star_extra` | string | `""` | extra STAR genomeGenerate flags |
-| `salmon_kmer` | int | `31` | salmon `-k` |
+| `star_extra` | string | `"--sjdbOverhang 100"` | extra STAR genomeGenerate flags |
+| `hisat2_extra` | string | `""` | extra hisat2-build flags |
+| `bowtie2_extra` | string | `""` | extra bowtie2-build flags |
+| `bwa_extra` | string | `""` | extra bwa index flags |
+| `bwa_mem2_extra` | string | `""` | extra bwa-mem2 index flags |
+| `bwameth_extra` | string | `""` | extra bwameth.py index flags |
+| `bwameth2_extra` | string | `""` | extra bwameth.py index-mem2 flags |
+| `salmon_extra` | string | `"-k 31"` | extra salmon index flags |
+| `bismark_extra` | string | `""` | extra bismark_genome_preparation flags |
 | `resources` | map | — | per-rule `{threads, mem_mb, runtime}` overrides (deep-merged over `default-config/resources.yaml`) |
 
 ## Architecture

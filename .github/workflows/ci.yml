@@ -86,7 +86,7 @@ jobs:
           # GitHub Actions' runner executes this block under `set -e` and
           # injects a `/usr/bin/clear_console -q` call into the exit path.
           # That helper exits non-zero on non-TTY runners, so under `set -e`
-          # it would flip an otherwise fully-passing run (all 9 checks done,
+          # it would flip an otherwise fully-passing run (all 12 checks done,
           # FAIL=0) into a zero-output "Process completed with exit code 1".
           # This script reports its own failures via $FAIL and `exit $FAIL`,
           # so -e is explicitly disabled here; -u and pipefail are kept.
@@ -200,7 +200,7 @@ jobs:
             echo "ERROR: annotation_summary section present in a no-GTF run"; FAIL=1
           fi
 
-          echo "[guards] 9/9 CLI --unlock works; metadata lives in the outdir"
+          echo "[guards] 9/12 CLI --unlock works; metadata lives in the outdir"
           if ! python workflow/scripts/aligner-index-builder \
                --fasta "$fixture/genome.fa" -o "$T/out9" --tools bowtie2 \
                --dry-run >"$T/unlock-setup.log" 2>&1; then
@@ -212,6 +212,51 @@ jobs:
             echo "ERROR: CLI --unlock failed (see $T/unlock.log)"; FAIL=1
           elif ! grep -q "unlocked $T/out9" "$T/unlock.log"; then
             echo "ERROR: --unlock did not report the unlocked outdir"; FAIL=1
+          fi
+
+          echo "[guards] 10/12 --remove-nonstandard keeps standard contigs"
+          printf '>chr1\nACGTACGT\n>chrUn_scaffold\nACGTACGT\n>chr1_random\nACGTACGT\n>chrM\nACGTACGT\n' \
+            > "$T/chrtest.fa"
+          printf '>chr1\ngene1\texon\t1\t100\t.\t+\t0\tgene_id "g1"\n' \
+            > "$T/chrtest.gtf"
+          python workflow/scripts/aligner-index-builder \
+            --fasta "$T/chrtest.fa" --gtf "$T/chrtest.gtf" \
+            -o "$T/out10" --tools bowtie2 \
+            --remove-nonstandard --cores 1 \
+            >"$T/chrtest.log" 2>&1
+          if [[ $? -ne 0 ]]; then
+            echo "ERROR: --remove-nonstandard run failed (see $T/chrtest.log)"; FAIL=1
+          elif ! grep -q "kept 2 contig(s), removed 2 contig(s)" \
+                "$T/out10/pipeline_info/logs/filter_genome.log"; then
+            echo "ERROR: --remove-nonstandard did not keep chr1+chrM and remove chrUn+chr1_random"; FAIL=1
+          elif ! grep -q "Masking status" "$T/out10/pipeline_info/resources_used_mqc.json"; then
+            echo "ERROR: masking status not in resources_used report"; FAIL=1
+          fi
+
+          echo "[guards] 11/12 --exclude-chroms removes matching contigs"
+          python workflow/scripts/aligner-index-builder \
+            --fasta "$T/chrtest.fa" --gtf "$T/chrtest.gtf" \
+            -o "$T/out11" --tools bowtie2 \
+            --exclude-chroms 'chrM' --cores 1 \
+            >"$T/exclude.log" 2>&1
+          if [[ $? -ne 0 ]]; then
+            echo "ERROR: --exclude-chroms run failed (see $T/exclude.log)"; FAIL=1
+          elif ! grep -q "kept 3 contig(s), removed 1 contig(s)" \
+                "$T/out11/pipeline_info/logs/filter_genome.log"; then
+            echo "ERROR: --exclude-chroms did not remove chrM"; FAIL=1
+          fi
+
+          echo "[guards] 12/12 --keep-chroms + --remove-nonstandard combined"
+          python workflow/scripts/aligner-index-builder \
+            --fasta "$T/chrtest.fa" --gtf "$T/chrtest.gtf" \
+            -o "$T/out12" --tools bowtie2 \
+            --keep-chroms '^chr[0-9]+$' --remove-nonstandard --cores 1 \
+            >"$T/keep.log" 2>&1
+          if [[ $? -ne 0 ]]; then
+            echo "ERROR: --keep-chroms + --remove-nonstandard failed (see $T/keep.log)"; FAIL=1
+          elif ! grep -q "kept 1 contig(s), removed 3 contig(s)" \
+                "$T/out12/pipeline_info/logs/filter_genome.log"; then
+            echo "ERROR: --keep-chroms did not keep only chr1"; FAIL=1
           fi
 
           echo "[guards] done, FAIL=$FAIL"

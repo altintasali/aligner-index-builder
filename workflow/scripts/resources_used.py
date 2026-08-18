@@ -77,6 +77,56 @@ def _gc_percent(path):
     return 100.0 * (counts["g"] + counts["c"]) / denom
 
 
+def _masking_status(path):
+    """Analyse genome masking from a FASTA file.
+
+    Returns (status, soft_count, soft_pct, hard_count, hard_pct) where:
+      status   = "unmasked" | "soft-masked" | "hard-masked" | "both"
+      soft_count / hard_count = base counts
+      soft_pct / hard_pct    = percentage of total bases
+    """
+    counts = {"upper": 0, "lower": 0, "n": 0, "other": 0}
+    with open(path) as fh:
+        for line in fh:
+            if line.startswith(">"):
+                continue
+            for ch in line.strip():
+                if ch in "ACGT":
+                    counts["upper"] += 1
+                elif ch in "acgt":
+                    counts["lower"] += 1
+                elif ch in "Nn":
+                    counts["n"] += 1
+                else:
+                    counts["other"] += 1
+    total = counts["upper"] + counts["lower"] + counts["n"] + counts["other"]
+    if total == 0:
+        return "unmasked", 0, 0.0, 0, 0.0
+    soft_count = counts["lower"]
+    hard_count = counts["n"]
+    soft_pct = 100.0 * soft_count / total
+    hard_pct = 100.0 * hard_count / total
+    if soft_count > 0 and hard_count > 0:
+        status = "both"
+    elif soft_count > 0:
+        status = "soft-masked"
+    elif hard_count > 0:
+        status = "hard-masked"
+    else:
+        status = "unmasked"
+    return status, soft_count, soft_pct, hard_count, hard_pct
+
+
+def _format_masking_row(status, soft_count, soft_pct, hard_count, hard_pct):
+    """Return a dict of rows for the Resources used table."""
+    rows = {
+        "Masking status": status,
+        "Soft-masked bases": f"{soft_count:,} ({soft_pct:.1f}%)",
+        "Hard-masked bases (N)": f"{hard_count:,} ({hard_pct:.1f}%)",
+    }
+    return rows
+
+
 def _count_gtf_features(path, feature):
     n = 0
     with open(path) as fh:
@@ -174,6 +224,32 @@ def main():
         "Genome total length (bp)": total_bp,
         "Genome N50 (bp)": n50,
         "Genome GC (%)": gc,
+    }
+
+    # Masking status -- always computed on the (filtered) genome; when
+    # chromosome filtering was applied we also report the original.
+    filtering_applied = params.get("filtering_applied", False)
+    status, sc, sp, hc, hp = _masking_status(inp.fasta)
+    if filtering_applied and not _is_empty(inp.raw_fasta):
+        raw_status, raw_sc, raw_sp, raw_hc, raw_hp = _masking_status(
+            inp.raw_fasta
+        )
+        resources.update({
+            "Masking status (original)": raw_status,
+            "Masking status (filtered)": status,
+            "Soft-masked bases (original)": f"{raw_sc:,} ({raw_sp:.1f}%)",
+            "Soft-masked bases (filtered)": f"{sc:,} ({sp:.1f}%)",
+            "Hard-masked bases (N, original)": f"{raw_hc:,} ({raw_hp:.1f}%)",
+            "Hard-masked bases (N, filtered)": f"{hc:,} ({hp:.1f}%)",
+        })
+    else:
+        resources.update({
+            "Masking status": status,
+            "Soft-masked bases": f"{sc:,} ({sp:.1f}%)",
+            "Hard-masked bases (N)": f"{hc:,} ({hp:.1f}%)",
+        })
+
+    resources.update({
         "Gene annotation (GTF)": gtf_path if has_gtf else "(none)",
         "GTF SHA-256": _sha256(inp.gtf) if has_gtf else "(none)",
         "FASTA vs GTF contigs": (
@@ -185,7 +261,7 @@ def main():
         "Total index size": _human(total_index),
         "Pipeline version": params.pipeline_version,
         "Snakemake version": params.snakemake_version,
-    }
+    })
     _write_table(
         out.resources,
         "resources_used",

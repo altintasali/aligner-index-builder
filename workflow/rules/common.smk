@@ -89,10 +89,18 @@ if not _tools:
 TOOLS = _tools
 
 # -----------------------------------------------------------------------------
+# Chromosome filtering options (applied by filter_genome before index builds)
+# -----------------------------------------------------------------------------
+KEEP_CHROMS = config.get("keep_chroms", [])
+REMOVE_NONSTANDARD = config.get("remove_nonstandard", False)
+EXCLUDE_CHROMS = config.get("exclude_chroms", [])
+
+# -----------------------------------------------------------------------------
 # Output paths (all per-tool index dirs live under <outdir>/index/<tool>/)
 # -----------------------------------------------------------------------------
 INDEX_DIR = os.path.join(OUTDIR, "index")
 GENOME_FASTA = os.path.join(OUTDIR, "genome_fasta", "genome.fa")
+GENOME_RAW_FASTA = os.path.join(OUTDIR, "genome_fasta", "genome_raw.fa")
 GENOME_FAI = GENOME_FASTA + ".fai"
 GENOME_2BIT = os.path.join(OUTDIR, "genome_fasta", "genome.2bit")
 GENES_GTF = os.path.join(OUTDIR, "annotation", "genes.gtf") if GTF else None
@@ -264,7 +272,7 @@ def all_benchmark_files():
         "bismark": "bismark",
     }
     files = [
-        "prepare_genome", "fasta_fai", "fasta_2bit",
+        "prepare_genome", "filter_genome", "fasta_fai", "fasta_2bit",
     ]
     if GTF:
         files += ["prepare_gtf", "chrom_consistency"]
@@ -307,5 +315,15 @@ with open(os.path.join(OUTDIR, "pipeline_info", "logs", "config_resolution.log")
     fh.write(f"fasta = {FASTA}\n")
     fh.write(f"gtf = {GTF if GTF else '(none)'}\n")
     fh.write(f"tools = {', '.join(TOOLS)}\n")
-    fh.write(f"sjdb_overhang = {config.get('sjdb_overhang', 100)}\n")
-    fh.write(f"salmon_kmer = {config.get('salmon_kmer', 31)}\n")
+    fh.write(f"star_extra = {config.get('star_extra', '--sjdbOverhang 100')}\n")
+    fh.write(f"hisat2_extra = {config.get('hisat2_extra', '')}\n")
+    fh.write(f"bowtie2_extra = {config.get('bowtie2_extra', '')}\n")
+    fh.write(f"bwa_extra = {config.get('bwa_extra', '')}\n")
+    fh.write(f"bwa_mem2_extra = {config.get('bwa_mem2_extra', '')}\n")
+    fh.write(f"bwameth_extra = {config.get('bwameth_extra', '')}\n")
+    fh.write(f"bwameth2_extra = {config.get('bwameth2_extra', '')}\n")
+    fh.write(f"salmon_extra = {config.get('salmon_extra', '-k 31')}\n")
+    fh.write(f"bismark_extra = {config.get('bismark_extra', '')}\n")
+    fh.write(f"remove_nonstandard = {REMOVE_NONSTANDARD}\n")
+    fh.write(f"keep_chroms = {KEEP_CHROMS}\n")
+    fh.write(f"exclude_chroms = {EXCLUDE_CHROMS}\n")

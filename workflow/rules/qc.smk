@@ -74,6 +74,7 @@ rule resources_used:
     input:
         fasta=GENOME_FASTA,
         fai=GENOME_FAI,
+        raw_fasta=GENOME_RAW_FASTA,
         index_markers=[TOOL_TARGETS[t] for t in TOOLS],
         gtf=(GENES_GTF if GENES_GTF else []),
         chrom=(CHROM_STATS if GENES_GTF else []),
@@ -89,6 +90,7 @@ rule resources_used:
         index_dirs={t: TOOL_INDEX_DIRS[t] for t in TOOLS},
         pipeline_version=PIPELINE_VERSION,
         snakemake_version=SNAKEMAKE_VERSION,
+        filtering_applied=(KEEP_CHROMS or REMOVE_NONSTANDARD or EXCLUDE_CHROMS),
     threads: get_resources("resources_used")["threads"]
     resources:
         mem_mb=get_resources("resources_used")["mem_mb"],
@@ -130,9 +132,18 @@ rule config_used:
             "fasta": FASTA,
             "gtf": GTF if GTF else "(none)",
             "tools": ", ".join(TOOLS),
-            "sjdb_overhang": config.get("sjdb_overhang", 100),
             "star_extra": config.get("star_extra") or "(none)",
-            "salmon_kmer": config.get("salmon_kmer", 31),
+            "hisat2_extra": config.get("hisat2_extra") or "(none)",
+            "bowtie2_extra": config.get("bowtie2_extra") or "(none)",
+            "bwa_extra": config.get("bwa_extra") or "(none)",
+            "bwa_mem2_extra": config.get("bwa_mem2_extra") or "(none)",
+            "bwameth_extra": config.get("bwameth_extra") or "(none)",
+            "bwameth2_extra": config.get("bwameth2_extra") or "(none)",
+            "salmon_extra": config.get("salmon_extra") or "(none)",
+            "bismark_extra": config.get("bismark_extra") or "(none)",
+            "keep_chroms": ", ".join(KEEP_CHROMS) if KEEP_CHROMS else "(none)",
+            "remove_nonstandard": str(REMOVE_NONSTANDARD),
+            "exclude_chroms": ", ".join(EXCLUDE_CHROMS) if EXCLUDE_CHROMS else "(none)",
             "pipeline_version": PIPELINE_VERSION,
             "snakemake_version": SNAKEMAKE_VERSION,
         }

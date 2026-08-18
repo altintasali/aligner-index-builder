@@ -35,8 +35,25 @@ tools:                       # which indices to build ("all" = every tool)
   - bwameth2
   - salmon
   - bismark
-sjdb_overhang: 100           # STAR splice-junction overhang (read length - 1)
-star_extra: ""               # extra STAR genomeGenerate flags, e.g. small
-                             # genomes: "--genomeSAindexNbases 7
-                             # --genomeChrBinNbits 16"
-salmon_kmer: 31              # k-mer length for the salmon index
+star_extra: "--sjdbOverhang 100"  # extra STAR genomeGenerate flags
+                             # default: "--sjdbOverhang 100"
+                             # e.g. small genomes: "--sjdbOverhang 100
+                             # --genomeSAindexNbases 7 --genomeChrBinNbits 16"
+hisat2_extra: ""             # extra hisat2-build flags, e.g. "--bmax 4096"
+bowtie2_extra: ""            # extra bowtie2-build flags, e.g. "--large-index"
+bwa_extra: ""                # extra bwa index flags, e.g. "-a -6"
+bwa_mem2_extra: ""           # extra bwa-mem2 index flags
+bwameth_extra: ""            # extra bwameth.py index flags
+bwameth2_extra: ""           # extra bwameth.py index-mem2 flags
+salmon_extra: "-k 31"        # extra salmon index flags
+                             # default: "-k 31"
+bismark_extra: ""            # extra bismark_genome_preparation flags
+
+# Chromosome filtering (optional -- applied by filter_genome before any index
+# is built).  When none of these are set, the FASTA is used as-is.
+# keep_chroms:                 # regex pattern(s) -- only keep matching contigs
+#   - "^\\d+$"                #   (e.g. keep numeric contigs only)
+# remove_nonstandard: true    # remove non-standard chromosomes
+#   # keeps contigs matching ^(chr)?(\\d+|[XYWZ]|MT?)$ (case-insensitive)
+# exclude_chroms:             # regex pattern(s) -- remove matching contigs
+#   - "chrM"                  #   (e.g. drop mitochondrial contigs)

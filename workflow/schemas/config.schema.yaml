@@ -22,12 +22,32 @@ properties:
         items:
           type: string
           enum: [star, hisat2, bowtie2, bwa, bwa-mem2, bwameth, bwameth2, salmon, bismark]
-  sjdb_overhang:
-    type: integer
-    minimum: 1
   star_extra:
     type: string
-  salmon_kmer:
-    type: integer
-    minimum: 1
+  hisat2_extra:
+    type: string
+  bowtie2_extra:
+    type: string
+  bwa_extra:
+    type: string
+  bwa_mem2_extra:
+    type: string
+  bwameth_extra:
+    type: string
+  bwameth2_extra:
+    type: string
+  salmon_extra:
+    type: string
+  bismark_extra:
+    type: string
+  keep_chroms:
+    type: array
+    items:
+      type: string
+  remove_nonstandard:
+    type: boolean
+  exclude_chroms:
+    type: array
+    items:
+      type: string
 required: [outdir, fasta, tools]

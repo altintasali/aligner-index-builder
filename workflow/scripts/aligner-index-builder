@@ -139,18 +139,59 @@ def _build_parser():
              "builds every tool. Choices: " + ", ".join(ALL_TOOLS),
     )
     parser.add_argument(
-        "--sjdb-overhang", type=int, metavar="N",
-        help="STAR splice-junction overhang (usually read length - 1; "
-             "default 100)",
-    )
-    parser.add_argument(
         "--star-extra", metavar="FLAGS",
         help="extra STAR genomeGenerate flags, e.g. for small genomes: "
              "'--genomeSAindexNbases 7 --genomeChrBinNbits 16'",
     )
     parser.add_argument(
-        "--salmon-kmer", type=int, metavar="N",
-        help="k-mer length for the salmon index (default 31)",
+        "--hisat2-extra", metavar="FLAGS",
+        help="extra hisat2-build flags",
+    )
+    parser.add_argument(
+        "--bowtie2-extra", metavar="FLAGS",
+        help="extra bowtie2-build flags",
+    )
+    parser.add_argument(
+        "--bwa-extra", metavar="FLAGS",
+        help="extra bwa index flags",
+    )
+    parser.add_argument(
+        "--bwa-mem2-extra", metavar="FLAGS",
+        help="extra bwa-mem2 index flags",
+    )
+    parser.add_argument(
+        "--bwameth-extra", metavar="FLAGS",
+        help="extra bwameth.py index flags",
+    )
+    parser.add_argument(
+        "--bwameth2-extra", metavar="FLAGS",
+        help="extra bwameth.py index-mem2 flags",
+    )
+    parser.add_argument(
+        "--salmon-extra", metavar="FLAGS",
+        help="extra salmon index flags, e.g. '-k 21'",
+    )
+    parser.add_argument(
+        "--bismark-extra", metavar="FLAGS",
+        help="extra bismark_genome_preparation flags",
+    )
+    parser.add_argument(
+        "--keep-chroms", nargs="+", metavar="REGEX",
+        help="regex pattern(s) to keep contigs in the reference FASTA; only "
+             "contigs matching at least one pattern are retained (applied "
+             "first, before --remove-nonstandard and --exclude-chroms)",
+    )
+    parser.add_argument(
+        "--remove-nonstandard", action="store_true",
+        help="remove non-standard chromosomes from the reference FASTA "
+             "(keeps contigs matching ^(chr)?(\\d+|[XYWZ]|MT?)$, case-"
+             "insensitive; covers UCSC and Ensembl naming for human, mouse, "
+             "pig, chicken)",
+    )
+    parser.add_argument(
+        "--exclude-chroms", nargs="+", metavar="REGEX",
+        help="regex pattern(s) to exclude contigs from the reference FASTA; "
+             "contigs matching any pattern are removed (applied last)",
     )
     parser.add_argument(
         "--cores", type=int, default=1, metavar="N",
@@ -277,17 +318,22 @@ def main(argv=None):
         "fasta": fasta,
         "gtf": gtf,
         "tools": tools,
+        "star_extra": args.star_extra or "",
+        "hisat2_extra": args.hisat2_extra or "",
+        "bowtie2_extra": args.bowtie2_extra or "",
+        "bwa_extra": args.bwa_extra or "",
+        "bwa_mem2_extra": args.bwa_mem2_extra or "",
+        "bwameth_extra": args.bwameth_extra or "",
+        "bwameth2_extra": args.bwameth2_extra or "",
+        "salmon_extra": args.salmon_extra or "",
+        "bismark_extra": args.bismark_extra or "",
     }
-    if args.sjdb_overhang is not None:
-        if args.sjdb_overhang < 1:
-            _die("--sjdb-overhang must be >= 1")
-        config["sjdb_overhang"] = args.sjdb_overhang
-    if args.star_extra:
-        config["star_extra"] = args.star_extra
-    if args.salmon_kmer is not None:
-        if args.salmon_kmer < 1:
-            _die("--salmon-kmer must be >= 1")
-        config["salmon_kmer"] = args.salmon_kmer
+    if args.keep_chroms:
+        config["keep_chroms"] = args.keep_chroms
+    if args.remove_nonstandard:
+        config["remove_nonstandard"] = True
+    if args.exclude_chroms:
+        config["exclude_chroms"] = args.exclude_chroms
 
     config_path = os.path.join(config_dir, f"{genome_name}.config.yaml")
     _write_yaml(config_path, config)
