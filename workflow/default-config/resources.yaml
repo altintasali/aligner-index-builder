@@ -49,7 +49,7 @@ resources:
   # because TwoPaCo graph construction is mostly single-threaded. Raise
   # mem_mb for much larger references (a ~11 Gbp reference OOMs with the same
   # "-9" signature as bwa-mem2).
-  salmon: {threads: 2, mem_mb: 20480, runtime: 480}
+  salmon: {threads: 2, mem_mb: 32768, runtime: 480}
   # MultiQC report + its inputs (pipeline_info/ versions/ under outdir).
   software_versions: {threads: 1, mem_mb: 2000, runtime: 30}
   resources_used: {threads: 1, mem_mb: 2000, runtime: 60}
