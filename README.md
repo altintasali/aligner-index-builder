@@ -1,5 +1,7 @@
 # aligner-index-builder
 
+![Version](https://img.shields.io/badge/version-0.3.2-blue)
+
 A [Snakemake](https://snakemake.readthedocs.io/) pipeline that builds a
 complete set of aligner/indexer indices from a reference genome **FASTA**
 (+ optional **GTF**): STAR, HISAT2, bowtie2, bwa, bwa-mem2, bwameth,
