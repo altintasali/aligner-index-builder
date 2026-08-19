@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Aggregate Snakemake benchmark files into a self-describing MultiQC custom
-content file rendered as the "Resource usage" section of the workflow's
+content file rendered as the "Resources" section of the workflow's
 MultiQC report.
 
 Each input is a Snakemake benchmark .txt written by Snakemake >=8
@@ -115,7 +115,7 @@ def main():
 
     summary = {
         "id": "resource_usage",
-        "section_name": "Resource usage",
+        "section_name": "Resources",
         "description": (
             "Per-rule job count, wall time, and resource efficiency -- for "
             "CPU and RAM: the allocated amount (resources.yaml), the mean/max "
@@ -127,7 +127,7 @@ def main():
         "plot_type": "table",
         "pconfig": {
             "id": "resource_usage_table",
-            "title": "Resource usage",
+            "title": "Resources",
             "col1_header": "Rule",
             "sort_rows": False,
         },

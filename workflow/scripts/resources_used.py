@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Write the "Resources used", "Index sizes" and "Annotation summary" custom
-content sections of the MultiQC report (qc.smk -> resources_used rule).
+"""Write the "Reference", "Index Sizes", "Annotation Summary", "Genes per
+Chromosome", and "Transcript Length Distribution" custom content sections of
+the MultiQC report (qc.smk -> resources_used rule).
 
 Everything derives from files the run already produced:
   - SHA-256 of the normalized reference (genome.fa) and annotation (genes.gtf)
@@ -142,12 +143,6 @@ def _parse_gtf_features(path):
     return dict(feature_counts), dict(chrom_genes)
 
 
-def _count_gtf_features(path, feature):
-    """Count occurrences of a specific feature type in a GTF."""
-    feature_counts, _ = _parse_gtf_features(path)
-    return feature_counts.get(feature, 0)
-
-
 def _parse_transcript_lengths(gtf_path, fasta_path):
     """Compute transcript lengths by summing exon spans.
 
@@ -201,41 +196,6 @@ def _bin_transcript_lengths(lengths):
                 counts[label] += 1
                 break
     return counts
-
-
-def _write_bargraph(path, doc_id, section_name, description, data, pconfig=None):
-    """Write a MultiQC bargraph custom-content JSON.
-
-    data: {sample_name: {category: count}}
-    """
-    if pconfig is None:
-        pconfig = {}
-    doc = {
-        "id": doc_id,
-        "section_name": section_name,
-        "description": description,
-        "plot_type": "bargraph",
-        "pconfig": {
-            "id": f"{doc_id}_plot",
-            "title": section_name,
-            "ylab": "Count",
-            "cpswitch_counts_label": "Count",
-            "cpswitch_catted_label": "Categorical",
-            **pconfig,
-        },
-        "data": data,
-    }
-    with open(path, "w") as fh:
-        json.dump(doc, fh, indent=2)
-
-
-def _count_headers(path):
-    n = 0
-    with open(path) as fh:
-        for line in fh:
-            if line.startswith(">"):
-                n += 1
-    return n
 
 
 def _dir_size(path):
@@ -359,79 +319,80 @@ def main():
     _write_table(
         out.resources,
         "resources_used",
-        "Resources used",
+        "Reference",
         "The reference genome and annotation this index set was built from, "
         "with checksums and sequence statistics, the index sets produced, and "
         "the pipeline/tool versions.",
         resources,
     )
 
-    index_rows = {
-        tool: _human(size) for tool, size in index_sizes.items()
+    index_rows = {tool: size for tool, size in index_sizes.items()}
+    index_rows["total"] = total_index
+    doc = {
+        "id": "index_sizes",
+        "section_name": "Index Sizes",
+        "description": "Disk footprint of each built index directory "
+        "(symlinked reference files count as the link itself).",
+        "plot_type": "table",
+        "pconfig": {
+            "id": "index_sizes_table",
+            "title": "Index Sizes",
+            "col1_header": "Index",
+            "sort_rows": False,
+        },
+        "headers": {
+            "value": {
+                "title": "Value",
+                "min": 0,
+                "max": total_index,
+                "format": "{:,.0f}",
+            },
+        },
+        "data": {k: {"value": v} for k, v in index_rows.items()},
     }
-    index_rows["total"] = _human(total_index)
-    _write_table(
-        out.index_sizes,
-        "index_sizes",
-        "Index sizes",
-        "Disk footprint of each built index directory (symlinked reference "
-        "files count as the link itself).",
-        index_rows,
-        col_header="Index",
-    )
+    with open(out.index_sizes, "w") as fh:
+        json.dump(doc, fh, indent=2)
 
-    if not _is_empty(out.annotation):
-        gtf = inp.gtf
-        annotation = {
-            "Genes (GTF)": _count_gtf_features(gtf, "gene"),
-            "Transcripts (GTF)": _count_gtf_features(gtf, "transcript"),
-        }
-        _write_table(
-            out.annotation,
-            "annotation_summary",
-            "Annotation summary",
-            "Feature counts from the gene annotation used to build the "
-            "splice-aware / transcriptome-aware indices.",
-            annotation,
-            col_header="Feature",
-        )
-
-    # GTF annotation plots (only when a GTF was provided).
+    # GTF annotation sections (only when a GTF was provided).
     if has_gtf:
         feature_counts, chrom_gene_counts = _parse_gtf_features(inp.gtf)
-        genome_label = params.get("genome_name", "genome")
 
-        # Feature type bar chart.
-        _write_bargraph(
-            out.gtf_features,
-            "gtf_features",
-            "GTF feature types",
-            "Count of each feature type in the gene annotation GTF.",
-            {genome_label: feature_counts},
-        )
+        # Annotation summary table (all feature type counts from the GTF).
+        if not _is_empty(out.annotation):
+            annotation = dict(sorted(feature_counts.items()))
+            _write_table(
+                out.annotation,
+                "annotation_summary",
+                "Annotation Summary",
+                "Feature counts from the gene annotation used to build the "
+                "splice-aware / transcriptome-aware indices.",
+                annotation,
+                col_header="Feature type",
+            )
 
-        # Genes per chromosome bar chart.
-        _write_bargraph(
+        # Genes per chromosome table.
+        _write_table(
             out.gtf_chroms,
             "gtf_chroms",
-            "Genes per chromosome",
+            "Genes per Chromosome",
             "Number of gene features per chromosome/contig in the GTF.",
-            {genome_label: chrom_gene_counts},
-            pconfig={"cpswitch_counts_label": "Genes"},
+            chrom_gene_counts,
+            col_header="Chromosome",
         )
 
-        # Transcript length distribution.
+        # Transcript length distribution table.
         tx_lengths = _parse_transcript_lengths(inp.gtf, inp.fasta)
         tx_bins = _bin_transcript_lengths(tx_lengths) if tx_lengths else {}
-        _write_bargraph(
-            out.gtf_tx_length,
-            "gtf_tx_length",
-            "Transcript length distribution",
-            "Distribution of transcript lengths (sum of exon spans) from "
-            "the GTF, binned into fixed size categories.",
-            {genome_label: tx_bins} if tx_bins else {},
-            pconfig={"cpswitch_counts_label": "Transcripts"},
-        )
+        if tx_bins:
+            _write_table(
+                out.gtf_tx_length,
+                "gtf_tx_length",
+                "Transcript Length Distribution",
+                "Distribution of transcript lengths (sum of exon spans) from "
+                "the GTF, binned into fixed size categories.",
+                tx_bins,
+                col_header="Length bin",
+            )
 
 
 if __name__ == "__main__":

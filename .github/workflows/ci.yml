@@ -62,7 +62,7 @@ jobs:
           test -s results/test/pipeline_info/annotation_summary_mqc.json
           test -s results/test/pipeline_info/benchmark_summary_mqc.json
           test -s results/test/pipeline_info/chrom_consistency.json
-          grep -q "Resources used" results/test/qc/multiqc_report.html
+          grep -q "Reference" results/test/qc/multiqc_report.html
 
           # Snakemake metadata + lock live in the output dir (the CLI runs
           # with --directory <outdir>), never in the repo clone.

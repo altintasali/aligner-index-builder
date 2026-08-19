@@ -2,12 +2,12 @@
 # Custom MultiQC configuration, passed to every multiqc run via `-c`.
 #
 # aligner-index-builder has no per-sample data (no alignments/reads), so the
-# report is entirely custom content: the "Resources used" / "Configuration
-# used" / "Index sizes" / "Annotation summary" tables (emitted by the
-# resources_used + config_used rules, qc.smk), the "Resource usage"
-# benchmark summary (benchmark_summary rule), and the built-in "Software
-# Versions" section (from the *_mqc_versions.yml written by the
-# software_versions rule).
+# report is entirely custom content: the "Reference" / "Configuration" /
+# "Index Sizes" / "Annotation Summary" / "Genes per Chromosome" / "Transcript
+# Length Distribution" tables (emitted by the resources_used + config_used
+# rules, qc.smk), the "Resources" benchmark summary (benchmark_summary rule),
+# and the built-in "Software Versions" section (from the *_mqc_versions.yml
+# written by the software_versions rule).
 # =============================================================================
 title: "aligner-index-builder"
 comment: >-
@@ -21,6 +21,12 @@ module_order:
   - custom_content
   - software_versions
 
+# Hide the "Group" column from the Software Versions table -- it organises
+# tools by category which is not useful for this pipeline.
+table_columns_visible:
+  software_versions:
+    Group: false
+
 # Order of the custom-content sections within the custom_content module;
 # without this their order is arbitrary. Section ids come from the `_mqc.json`
 # documents emitted by the resources_used / config_used / benchmark_summary
@@ -33,7 +39,6 @@ custom_content:
     - config_used
     - index_sizes
     - annotation_summary
-    - gtf_features
     - gtf_chroms
     - gtf_tx_length
     - resource_usage
