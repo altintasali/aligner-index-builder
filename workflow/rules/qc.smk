@@ -68,7 +68,7 @@ rule software_versions:
         }
         with open(QC_VERSIONS, "w") as fh:
             yaml.safe_dump(
-                {"software_versions": versions}, fh, default_flow_style=False
+                versions, fh, default_flow_style=False
             )
 
 
