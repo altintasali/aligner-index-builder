@@ -383,16 +383,15 @@ def main():
         # Transcript length distribution table.
         tx_lengths = _parse_transcript_lengths(inp.gtf, inp.fasta)
         tx_bins = _bin_transcript_lengths(tx_lengths) if tx_lengths else {}
-        if tx_bins:
-            _write_table(
-                out.gtf_tx_length,
-                "gtf_tx_length",
-                "Transcript Length Distribution",
-                "Distribution of transcript lengths (sum of exon spans) from "
-                "the GTF, binned into fixed size categories.",
-                tx_bins,
-                col_header="Length bin",
-            )
+        _write_table(
+            out.gtf_tx_length,
+            "gtf_tx_length",
+            "Transcript Length Distribution",
+            "Distribution of transcript lengths (sum of exon spans) from "
+            "the GTF, binned into fixed size categories.",
+            tx_bins,
+            col_header="Length bin",
+        )
 
 
 if __name__ == "__main__":
