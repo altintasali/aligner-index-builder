@@ -31,17 +31,30 @@ except NameError:  # pragma: no cover
 
 # Desired row order for the Annotation Summary table.
 _ANNO_ORDER = [
-    "gene", "transcript", "exon", "CDS", "start_codon", "stop_codon",
-    "five_prime_utr", "three_prime_utr", "Selenocysteine",
+    "Gene", "Transcript", "Exon", "CDS", "Start codon", "Stop codon",
+    "5' UTR", "3' UTR", "Selenocysteine",
 ]
+
+_ANNO_DISPLAY = {
+    "gene": "Gene",
+    "transcript": "Transcript",
+    "exon": "Exon",
+    "CDS": "CDS",
+    "start_codon": "Start codon",
+    "stop_codon": "Stop codon",
+    "five_prime_utr": "5' UTR",
+    "three_prime_utr": "3' UTR",
+    "Selenocysteine": "Selenocysteine",
+}
 
 
 def _anno_sort_key(item):
     """Sort feature types by a predefined order; unknown types at the end."""
+    display_name = _ANNO_DISPLAY.get(item[0], item[0])
     try:
-        return (0, _ANNO_ORDER.index(item[0]))
+        return (0, _ANNO_ORDER.index(display_name))
     except ValueError:
-        return (1, item[0])
+        return (1, display_name)
 
 
 _CHROM_MAP = {'X': 23, 'Y': 24, 'M': 25, 'MT': 25}
@@ -386,7 +399,10 @@ def main():
 
         # Annotation summary table (all feature type counts from the GTF).
         if not _is_empty(out.annotation):
-            annotation = dict(sorted(feature_counts.items(), key=_anno_sort_key))
+            annotation = {
+                _ANNO_DISPLAY.get(k, k): v
+                for k, v in sorted(feature_counts.items(), key=_anno_sort_key)
+            }
             _write_table(
                 out.annotation,
                 "annotation_summary",
