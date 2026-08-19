@@ -21,12 +21,42 @@ custom_content.order in multiqc_config.yaml.
 import hashlib
 import json
 import os
+import re
 
 try:
     # Only defined when run by Snakemake's `script:` directive.
     snakemake
 except NameError:  # pragma: no cover
     snakemake = None
+
+# Desired row order for the Annotation Summary table.
+_ANNO_ORDER = [
+    "gene", "transcript", "exon", "CDS", "start_codon", "stop_codon",
+    "five_prime_utr", "three_prime_utr", "Selenocysteine",
+]
+
+
+def _anno_sort_key(item):
+    """Sort feature types by a predefined order; unknown types at the end."""
+    try:
+        return (0, _ANNO_ORDER.index(item[0]))
+    except ValueError:
+        return (1, item[0])
+
+
+_CHROM_MAP = {'X': 23, 'Y': 24, 'M': 25, 'MT': 25}
+
+
+def _chrom_sort_key(item):
+    """Natural chromosome sort: 1-22, X, Y, M, then other contigs."""
+    chrom = item[0]
+    m = re.match(r'^(\d+|X|Y|M|MT)$', chrom, re.IGNORECASE)
+    if m:
+        val = m.group(1).upper()
+        if val.isdigit():
+            return (0, int(val))
+        return (0, _CHROM_MAP[val])
+    return (1, chrom)
 
 
 def _sha256(path):
@@ -326,8 +356,8 @@ def main():
         resources,
     )
 
-    index_rows = {tool: size for tool, size in index_sizes.items()}
-    index_rows["total"] = total_index
+    index_rows = {tool: _human(size) for tool, size in index_sizes.items()}
+    index_rows["total"] = _human(total_index)
     doc = {
         "id": "index_sizes",
         "section_name": "Index Sizes",
@@ -343,9 +373,6 @@ def main():
         "headers": {
             "value": {
                 "title": "Value",
-                "min": 0,
-                "max": total_index,
-                "format": "{:,.0f}",
             },
         },
         "data": {k: {"value": v} for k, v in index_rows.items()},
@@ -359,7 +386,7 @@ def main():
 
         # Annotation summary table (all feature type counts from the GTF).
         if not _is_empty(out.annotation):
-            annotation = dict(sorted(feature_counts.items()))
+            annotation = dict(sorted(feature_counts.items(), key=_anno_sort_key))
             _write_table(
                 out.annotation,
                 "annotation_summary",
@@ -371,12 +398,13 @@ def main():
             )
 
         # Genes per chromosome table.
+        sorted_chroms = dict(sorted(chrom_gene_counts.items(), key=_chrom_sort_key))
         _write_table(
             out.gtf_chroms,
             "gtf_chroms",
             "Genes per Chromosome",
             "Number of gene features per chromosome/contig in the GTF.",
-            chrom_gene_counts,
+            sorted_chroms,
             col_header="Chromosome",
         )
 
@@ -392,6 +420,14 @@ def main():
             tx_bins,
             col_header="Length bin",
         )
+
+    # Clean up any stale gtf_features_mqc.json from older pipeline versions
+    # that might still be discovered by MultiQC.
+    for stale_path in ["gtf_features_mqc.json"]:
+        stale = os.path.join(os.path.dirname(out.resources), stale_path)
+        if os.path.exists(stale):
+            os.remove(stale)
+            print(f"Removed stale file: {stale}", file=sys.stderr)
 
 
 if __name__ == "__main__":

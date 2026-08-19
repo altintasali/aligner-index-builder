@@ -27,6 +27,6 @@ versions:
   # and takes --path_to_aligner (not --path_to_bowtie2).
   bismark: "0.25.1"
   bwameth: "0.2.9"           # conda package `bwameth`; provides bwameth.py
-  gffread: ">=0.12.6"
+  gffread: "0.12.6"
   ucsc_fatotwobit: "482"
   multiqc: "1.33"

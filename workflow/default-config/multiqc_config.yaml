@@ -21,12 +21,6 @@ module_order:
   - custom_content
   - software_versions
 
-# Hide the "Group" column from the Software Versions table -- it organises
-# tools by category which is not useful for this pipeline.
-table_columns_visible:
-  software_versions:
-    Group: false
-
 # Order of the custom-content sections within the custom_content module;
 # without this their order is arbitrary. Section ids come from the `_mqc.json`
 # documents emitted by the resources_used / config_used / benchmark_summary

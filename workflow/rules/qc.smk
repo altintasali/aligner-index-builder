@@ -45,18 +45,26 @@ rule software_versions:
         import yaml
 
         versions = {
-            "STAR": V["star"],
-            "SAMtools": V["samtools"],
-            "HISAT2": V["hisat2"],
-            "bowtie2": V["bowtie2"],
-            "BWA": V["bwa"],
-            "bwa-mem2": V["bwa_mem2"],
-            "bwameth": V["bwameth"] if V["bwameth"] else "unpinned (latest)",
-            "Bismark": V["bismark"],
-            "salmon": V["salmon"],
-            "gffread": V["gffread"],
-            "faToTwoBit": V["ucsc_fatotwobit"],
-            "MultiQC": V["multiqc"],
+            "Aligners": {
+                "STAR": V["star"],
+                "HISAT2": V["hisat2"],
+                "bowtie2": V["bowtie2"],
+                "BWA": V["bwa"],
+                "bwa-mem2": V["bwa_mem2"],
+            },
+            "Methylation": {
+                "bwameth": V["bwameth"] if V["bwameth"] else "unpinned (latest)",
+                "Bismark": V["bismark"],
+            },
+            "Quantification": {
+                "salmon": V["salmon"],
+            },
+            "Utilities": {
+                "samtools": V["samtools"],
+                "gffread": V["gffread"],
+                "faToTwoBit": V["ucsc_fatotwobit"],
+                "MultiQC": V["multiqc"],
+            },
         }
         with open(QC_VERSIONS, "w") as fh:
             yaml.safe_dump(
