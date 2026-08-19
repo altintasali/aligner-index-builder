@@ -1,6 +1,10 @@
 # aligner-index-builder
 
 ![Version](https://img.shields.io/badge/version-0.3.2-blue)
+[![CI](https://github.com/altintasali/aligner-index-builder/actions/workflows/ci.yml/badge.svg)](https://github.com/altintasali/aligner-index-builder/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+![Python](https://img.shields.io/badge/python-%3E%3D3.9-blue)
+![Platform](https://img.shields.io/badge/platform-linux--x86__64-lightgrey)
 
 A [Snakemake](https://snakemake.readthedocs.io/) pipeline that builds a
 complete set of aligner/indexer indices from a reference genome **FASTA**
